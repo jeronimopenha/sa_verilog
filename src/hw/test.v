@@ -15,7 +15,7 @@ module create_random_generator_11b
       rnd <= seed;
     end else begin
       if(en) begin
-        rnd <= { rnd[9:0], rnd[11] ^ rnd[10] ^ rnd[9] ^ rnd[7] };
+        rnd <= { rnd[9:0], !(rnd[10] ^ rnd[9] ^ rnd[7] ^ rnd[1]) };
       end 
     end
   end

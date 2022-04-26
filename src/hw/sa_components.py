@@ -140,7 +140,6 @@ class SAComponents:
         self.cache[name] = m
         return m
 
-    # TODO
     def create_random_generator(self):
         name = 'create_random_generator_11b'
         if name in self.cache.keys():
@@ -159,7 +158,7 @@ class SAComponents:
             If(rst)(
                 rnd(seed)
             ).Elif(en)(
-                rnd(Cat(rnd[0:rnd.width - 1], Xor(Xor(Xor(rnd[11], rnd[10]), rnd[9]), rnd[7])))
+                rnd(Cat(rnd[0:rnd.width - 1], Not(Xor(Xor(Xor(rnd[10], rnd[9]), rnd[7]), rnd[1]))))
             )
         )
 
@@ -167,6 +166,7 @@ class SAComponents:
         self.cache[name] = m
         return m
 
+    #todo
     def create_node_pe_rel_memory(self, qty_nodes):
         name = 'node_pe_rel_memory'
         if name in self.cache.keys():
@@ -259,13 +259,106 @@ class SAComponents:
         self.cache[name] = m
         return m
 
+    #todo
+    def create_node_connections_memory(self, qty_nodes):
+        name = 'node_pe_rel_memory'
+        if name in self.cache.keys():
+            return self.cache[name]
+
+        config_word_width = 8
+        distance_width = 8
+
+        m = Module(name)
+
+        clk = m.Input('clk')
+        rst = m.Input('rst')
+        input_config_valid = m.Input('input_config_valid')
+        input_config = m.Input('input_config', config_word_width)
+        re = m.Input('re')
+        rd_pe_1 = m.Input('rd_pe_1', ceil(log2(qty_nodes)))
+        rd_pe_2 = m.Input('rd_pe_2', ceil(log2(qty_nodes)))
+        pe_1_out = m.Output('pe_1_out', qty_nodes * distance_width)
+        pe_2_out = m.Output('pe_2_out', qty_nodes * distance_width)
+        rdy = m.Output('rdy')
+
+        # input_Registers
+        m.EmbeddedCode('//input_Registers')
+        input_config_valid_r = m.Reg('input_config_valid_r')
+        input_config_r = m.Reg('input_config_r', input_config.width)
+        re_r = m.Reg('re_r')
+        rd_pe_1_r = m.Reg('rd_pe_1_r', rd_pe_1.width)
+        rd_pe_2_r = m.Reg('rd_pe_2_r', rd_pe_2.width)
+        m.EmbeddedCode('//---------------')
+        # ---------------
+
+        # Config controler
+        m.EmbeddedCode('//Config controler')
+        config_column_counter = m.Reg('config_column_counter', qty_nodes)
+        config_data = m.Reg('config_data', qty_nodes * config_word_width)
+        mem_we = m.Reg('mem_we')
+        mem_waddr = m.Reg('mem_waddr', ceil(log2(qty_nodes)))
+        m.EmbeddedCode('//---------------')
+        # ---------------
+
+        # Registering the inputs
+        m.EmbeddedCode('//Registering the inputs')
+        m.Always(Posedge(clk))(
+            input_config_valid_r(input_config_valid),
+            input_config_r(input_config),
+            re_r(re),
+            rd_pe_1_r(rd_pe_1),
+            rd_pe_2_r(rd_pe_2),
+        )
+        m.EmbeddedCode('//---------------')
+        # ----------------------
+
+        # Configuration algorithm
+        m.EmbeddedCode('//Configuration algorithm')
+        m.Always(Posedge(clk))(
+            If(rst)(
+                rdy(0),
+                config_column_counter(1),
+                mem_we(0),
+                mem_waddr(0),
+            ).Elif(input_config_valid_r)(
+                config_data(Cat(input_config, config_data[config_word_width:config_data.width])),
+                If(config_column_counter[qty_nodes - 1])(
+                    mem_we(1),
+                    config_column_counter(
+                        Cat(config_column_counter[0:config_column_counter.width - 1], Int(1, 1, 2))),
+                ).Else(
+                    mem_we(0),
+                    config_column_counter(
+                        Cat(config_column_counter[0:config_column_counter.width - 1], Int(0, 1, 2))),
+                ),
+            ),
+            If(mem_we)(
+                mem_waddr.inc(),
+            ),
+        )
+        m.EmbeddedCode('//---------------')
+        # ----------------------
+
+        # Main memory to be used for the distance memory
+        m.EmbeddedCode('//Main memory to be used for the distance memory')
+        par = [('data_width', qty_nodes * distance_width), ('addr_width', ceil(log2(qty_nodes)))]
+        con = [('clk', clk), ('we', mem_we), ('re', re_r), ('raddr1', rd_pe_1_r), ('raddr2', rd_pe_2_r),
+               ('waddr', mem_waddr), ('din', config_data), ('dout1', pe_1_out), ('dout2', pe_2_out)]
+        memory_dual_read = self.create_memory_dual_read_rd_sync()
+        m.Instance(memory_dual_read, memory_dual_read.name, par, con)
+        m.EmbeddedCode('//---------------')
+        # ----------------------
+
+        self.cache[name] = m
+        return m
 
 comp = SAComponents()
 
+
+'''
 # random verilog creation test
 comp.create_random_generator().to_verilog('test.v')
-
-
+'''
 '''
 # distance memory verilog creation test
 

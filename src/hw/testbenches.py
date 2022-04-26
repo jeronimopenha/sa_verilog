@@ -3,6 +3,7 @@ import random
 from veriloggen import *
 
 from src.hw.sa_components import SAComponents
+from src.hw.utils import initialize_regs
 
 
 def create_random_generator_test_bench_hw():
@@ -27,14 +28,29 @@ def create_random_generator_test_bench_hw():
     con = [('clk', clk), ('rst', rst), ('en', rnd_en), ('seed', rnd_seed), ('rnd', rnd_rnd)]
     sa_comp = SAComponents()
     rnd_module = sa_comp.create_random_generator()
-    m.Instance(rnd_module,rnd_module.name,par,con)
+    m.Instance(rnd_module, rnd_module.name, par, con)
 
-    print(m.to_verilog())
-    #m.to_verilog('../test_benches/grn_naive_pe_test_bench_' + str(
-    #    len(self.grn_content.get_nodes_vector())) + '_nodes_' + str(int(pow(2, bits_grn))) + '_states.v')
-    #sim = simulation.Simulator(m, sim='iverilog')
-    #rslt = sim.run()
-    #print(rslt)
+    initialize_regs(m, {'clk': 0, 'rst': 1, 'rnd_en': 0})
+    simulation.setup_waveform(m)
+    m.Initial(
+        EmbeddedCode('@(posedge clk);'),
+        EmbeddedCode('@(posedge clk);'),
+        EmbeddedCode('@(posedge clk);'),
+        rst(0),
+        rnd_en(1),
+        Delay(1000), Finish()
+    )
+    m.EmbeddedCode('always #5clk=~clk;')
+    m.Always(Posedge(clk))(
+        If(rnd_en)(
+            Display("%d", rnd_rnd[0:4])
+        )
+    )
+
+    m.to_verilog('random_generator_test_bench_hw.v')
+    sim = simulation.Simulator(m, sim='iverilog')
+    rslt = sim.run()
+    print(rslt)
 
 
-create_random_generator_test_bench_hw()
+#create_random_generator_test_bench_hw()
