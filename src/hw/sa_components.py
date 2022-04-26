@@ -1,7 +1,5 @@
 from veriloggen import *
 from math import log2, ceil
-from grn2dot.grn2dot import Grn2dot
-
 from utils import initialize_regs
 
 
@@ -67,8 +65,110 @@ class SAComponents:
         self.cache[name] = m
         return m
 
-    def create_distance_memory(self, qty_nodes):
-        name = 'distance_memory'
+    def create_distance_rom_memory(self, lines, columns, distance_matrix):
+        name = 'distance_rom_memory_%d_%d' % (lines, columns)
+        if name in self.cache.keys():
+            return self.cache[name]
+
+        # shortest Manhattan distance
+        distance_width = ceil(log2(lines + columns))
+
+        m = Module(name)
+
+        clk = m.Input('clk')
+        re = m.Input('re')
+        rd_pe_1 = m.Input('rd_pe_1', ceil(log2(lines * columns)))
+        rd_pe_2 = m.Input('rd_pe_2', ceil(log2(lines * columns)))
+        pe_1_out = m.Output('pe_1_out', lines * columns * distance_width)
+        pe_2_out = m.Output('pe_2_out', lines * columns * distance_width)
+        out_valid = m.OutputReg('out_valid')
+
+        # input_Registers
+        m.EmbeddedCode('//input_Registers')
+        re_r = m.Reg('re_r')
+        rd_pe_1_r = m.Reg('rd_pe_1_r', rd_pe_1.width)
+        rd_pe_2_r = m.Reg('rd_pe_2_r', rd_pe_2.width)
+        m.EmbeddedCode('//---------------')
+        # ---------------
+
+        # Memory
+        m.EmbeddedCode('//Memory')
+        mem = m.Wire('mem', pe_1_out.width, lines * columns)
+        m.EmbeddedCode('//---------------')
+        # --------------
+
+        # Registering the inputs
+        m.EmbeddedCode('//Registering the inputs')
+        m.Always(Posedge(clk))(
+            re_r(re),
+            rd_pe_1_r(rd_pe_1),
+            rd_pe_2_r(rd_pe_2),
+        )
+        m.EmbeddedCode('//---------------')
+        # ----------------------
+
+        # Reading the memory
+        m.EmbeddedCode('//Reading the memory')
+        m.Always(Posedge(clk))(
+            If(re_r)(
+                pe_1_out(mem[rd_pe_1_r]),
+                pe_2_out(mem[rd_pe_2_r]),
+                out_valid(1),
+            ).Else(
+                out_valid(0),
+            )
+        )
+        m.EmbeddedCode('//---------------')
+        # ----------------------
+
+        # Memory Content
+        m.EmbeddedCode('//Memory Content')
+        line_counter = 0
+        for l in distance_matrix:
+            s = "{"
+            for c in l:
+                s = s + str(c) + ","
+            s = s[:-1]
+            s = s + "}"
+            mem[line_counter].assign(EmbeddedCode(s))
+            line_counter = line_counter + 1
+
+        m.EmbeddedCode('//---------------')
+        # ----------------------
+
+        initialize_regs(m)
+        self.cache[name] = m
+        return m
+
+    # TODO
+    def create_random_generator(self):
+        name = 'create_random_generator_11b'
+        if name in self.cache.keys():
+            return self.cache[name]
+
+        bits = 11
+
+        m = Module(name)
+        clk = m.Input('clk')
+        rst = m.Input('rst')
+        en = m.Input('en')
+        seed = m.Input('seed', bits)
+        rnd = m.OutputReg('rnd', bits)
+
+        m.Always(Posedge(clk))(
+            If(rst)(
+                rnd(seed)
+            ).Elif(en)(
+                rnd(Cat(rnd[0:rnd.width - 1], Xor(Xor(Xor(rnd[11], rnd[10]), rnd[9]), rnd[7])))
+            )
+        )
+
+        initialize_regs(m)
+        self.cache[name] = m
+        return m
+
+    def create_node_pe_rel_memory(self, qty_nodes):
+        name = 'node_pe_rel_memory'
         if name in self.cache.keys():
             return self.cache[name]
 
@@ -126,6 +226,7 @@ class SAComponents:
                 rdy(0),
                 config_column_counter(1),
                 mem_we(0),
+                mem_waddr(0),
             ).Elif(input_config_valid_r)(
                 config_data(Cat(input_config, config_data[config_word_width:config_data.width])),
                 If(config_column_counter[qty_nodes - 1])(
@@ -137,7 +238,10 @@ class SAComponents:
                     config_column_counter(
                         Cat(config_column_counter[0:config_column_counter.width - 1], Int(0, 1, 2))),
                 ),
-            )
+            ),
+            If(mem_we)(
+                mem_waddr.inc(),
+            ),
         )
         m.EmbeddedCode('//---------------')
         # ----------------------
@@ -157,4 +261,25 @@ class SAComponents:
 
 
 comp = SAComponents()
-comp.create_distance_memory(10).to_verilog('test.v')
+
+# random verilog creation test
+comp.create_random_generator().to_verilog('test.v')
+
+
+'''
+# distance memory verilog creation test
+
+lines = 4
+columns = 4
+distance_matrix = []
+
+for m in range(lines):
+    for n in range(columns):
+        line = []
+        for l in range(lines):
+            for c in range(columns):
+                line.append(abs(m - l) + abs(n - c))
+        distance_matrix.append(line)
+
+comp.create_distance_rom_memory(lines, columns, distance_matrix).to_verilog('test.v')
+'''
