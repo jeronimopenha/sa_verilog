@@ -14,8 +14,8 @@ class SAComponents:
     def __init__(self):
         self.cache = {}
 
-    def create_memory_dual_read_rd_sync(self):
-        name = 'memory_dual_read_rd_sync'
+    def create_memory_drd_sync(self):
+        name = 'memory_drd_sync'
         if name in self.cache.keys():
             return self.cache[name]
 
@@ -81,15 +81,6 @@ class SAComponents:
         rd_pe_2 = m.Input('rd_pe_2', ceil(log2(lines * columns)))
         pe_1_out = m.Output('pe_1_out', lines * columns * distance_width)
         pe_2_out = m.Output('pe_2_out', lines * columns * distance_width)
-        out_valid = m.OutputReg('out_valid')
-
-        # input_Registers
-        m.EmbeddedCode('//input_Registers')
-        re_r = m.Reg('re_r')
-        rd_pe_1_r = m.Reg('rd_pe_1_r', rd_pe_1.width)
-        rd_pe_2_r = m.Reg('rd_pe_2_r', rd_pe_2.width)
-        m.EmbeddedCode('//---------------')
-        # ---------------
 
         # Memory
         m.EmbeddedCode('//Memory')
@@ -97,25 +88,12 @@ class SAComponents:
         m.EmbeddedCode('//---------------')
         # --------------
 
-        # Registering the inputs
-        m.EmbeddedCode('//Registering the inputs')
-        m.Always(Posedge(clk))(
-            re_r(re),
-            rd_pe_1_r(rd_pe_1),
-            rd_pe_2_r(rd_pe_2),
-        )
-        m.EmbeddedCode('//---------------')
-        # ----------------------
-
         # Reading the memory
         m.EmbeddedCode('//Reading the memory')
         m.Always(Posedge(clk))(
-            If(re_r)(
-                pe_1_out(mem[rd_pe_1_r]),
-                pe_2_out(mem[rd_pe_2_r]),
-                out_valid(1),
-            ).Else(
-                out_valid(0),
+            If(re)(
+                pe_1_out(mem[rd_pe_1]),
+                pe_2_out(mem[rd_pe_2]),
             )
         )
         m.EmbeddedCode('//---------------')
@@ -141,6 +119,7 @@ class SAComponents:
         return m
 
     def create_random_generator(self):
+        # LFSR random generator based on Fibonacci's LFSR
         name = 'create_random_generator_11b'
         if name in self.cache.keys():
             return self.cache[name]
@@ -166,100 +145,81 @@ class SAComponents:
         self.cache[name] = m
         return m
 
-    #todo
-    def create_node_pe_rel_memory(self, qty_nodes):
-        name = 'node_pe_rel_memory'
+    # todo
+    def create_nd_pe_rel_controller(self, qty_pes):
+        name = 'node_pe_rel_controller'
         if name in self.cache.keys():
             return self.cache[name]
 
-        config_word_width = 8
-        distance_width = 8
+        node_add_width = ceil(log2(qty_pes))
+        node_width = node_add_width
 
         m = Module(name)
 
         clk = m.Input('clk')
         rst = m.Input('rst')
-        input_config_valid = m.Input('input_config_valid')
-        input_config = m.Input('input_config', config_word_width)
         re = m.Input('re')
-        rd_pe_1 = m.Input('rd_pe_1', ceil(log2(qty_nodes)))
-        rd_pe_2 = m.Input('rd_pe_2', ceil(log2(qty_nodes)))
-        pe_1_out = m.Output('pe_1_out', qty_nodes * distance_width)
-        pe_2_out = m.Output('pe_2_out', qty_nodes * distance_width)
+        rd_nd_1 = m.Input('rd_nd_1', node_add_width)
+        pe1_rd_out = m.Output('pe1_rd_out', node_width)
+        pe1_rd_out_v = m.Output('pe1_rd_out_v')
+        rd_nd_2 = m.Input('rd_nd_2', node_add_width)
+        pe2_rd_out = m.Output('pe2_rd_out', node_width)
+        pe2_rd_out_v = m.Output('pe2_rd_out_v')
+        we = m.Input('we')
+        wr_addr = m.Input('wr_addr', node_add_width)
+        wr_data = m.Input('wr_data', node_width)
+        wr_data_v = m.Input('wr_data_v', node_width)
+
         rdy = m.Output('rdy')
 
-        # input_Registers
-        m.EmbeddedCode('//input_Registers')
-        input_config_valid_r = m.Reg('input_config_valid_r')
-        input_config_r = m.Reg('input_config_r', input_config.width)
-        re_r = m.Reg('re_r')
-        rd_pe_1_r = m.Reg('rd_pe_1_r', rd_pe_1.width)
-        rd_pe_2_r = m.Reg('rd_pe_2_r', rd_pe_2.width)
-        m.EmbeddedCode('//---------------')
-        # ---------------
+        mem_v_wr_data = m.Wire('mem_v_wr_data')
+        mem_v_we = m.Wire('mem_v_we')
+        mem_v_waddr = m.Wire('mem_v_waddr', node_add_width)
+        init_counter = m.Reg('init_counter', node_add_width + 1)
+        init_we = m.Reg('init_we')
+        init_wr_data = m.Wire('init_wr_data')
+        init_wr_addr = m.Wire('init_wr_addr')
 
-        # Config controler
-        m.EmbeddedCode('//Config controler')
-        config_column_counter = m.Reg('config_column_counter', qty_nodes)
-        config_data = m.Reg('config_data', qty_nodes * config_word_width)
-        mem_we = m.Reg('mem_we')
-        mem_waddr = m.Reg('mem_waddr', ceil(log2(qty_nodes)))
-        m.EmbeddedCode('//---------------')
-        # ---------------
+        init_wr_data.assign(0)
+        init_wr_addr.assign(init_counter)
 
-        # Registering the inputs
-        m.EmbeddedCode('//Registering the inputs')
-        m.Always(Posedge(clk))(
-            input_config_valid_r(input_config_valid),
-            input_config_r(input_config),
-            re_r(re),
-            rd_pe_1_r(rd_pe_1),
-            rd_pe_2_r(rd_pe_2),
-        )
-        m.EmbeddedCode('//---------------')
-        # ----------------------
+        mem_v_wr_data.assign(Mux(rdy, wr_data_v, init_wr_data))
+        mem_v_waddr.assign(Mux(rdy, wr_addr, init_wr_addr))
+        mem_v_we.assign(Mux(rdy, we, init_we))
 
-        # Configuration algorithm
-        m.EmbeddedCode('//Configuration algorithm')
         m.Always(Posedge(clk))(
             If(rst)(
                 rdy(0),
-                config_column_counter(1),
-                mem_we(0),
-                mem_waddr(0),
-            ).Elif(input_config_valid_r)(
-                config_data(Cat(input_config, config_data[config_word_width:config_data.width])),
-                If(config_column_counter[qty_nodes - 1])(
-                    mem_we(1),
-                    config_column_counter(
-                        Cat(config_column_counter[0:config_column_counter.width - 1], Int(1, 1, 2))),
+                init_counter(0),
+                init_we(0)
+            ).Elif(Not(rdy))(
+                If(init_counter == qty_pes - 1)(
+                    rdy(1),
+                    init_we(0),
                 ).Else(
-                    mem_we(0),
-                    config_column_counter(
-                        Cat(config_column_counter[0:config_column_counter.width - 1], Int(0, 1, 2))),
+                    init_we(1),
+                    init_counter.inc(),
                 ),
-            ),
-            If(mem_we)(
-                mem_waddr.inc(),
-            ),
+            )
         )
-        m.EmbeddedCode('//---------------')
-        # ----------------------
 
-        # Main memory to be used for the distance memory
-        m.EmbeddedCode('//Main memory to be used for the distance memory')
-        par = [('data_width', qty_nodes * distance_width), ('addr_width', ceil(log2(qty_nodes)))]
-        con = [('clk', clk), ('we', mem_we), ('re', re_r), ('raddr1', rd_pe_1_r), ('raddr2', rd_pe_2_r),
-               ('waddr', mem_waddr), ('din', config_data), ('dout1', pe_1_out), ('dout2', pe_2_out)]
-        memory_dual_read = self.create_memory_dual_read_rd_sync()
-        m.Instance(memory_dual_read, memory_dual_read.name, par, con)
-        m.EmbeddedCode('//---------------')
-        # ----------------------
+        par = [('data_width', 1), ('addr_width', node_add_width)]
+        con = [('clk', clk), ('we', mem_v_we), ('re', re), ('raddr1', rd_nd_1), ('raddr2', rd_nd_2),
+               ('waddr', mem_v_waddr), ('din', mem_v_wr_data), ('dout1', pe1_rd_out_v), ('dout2', pe2_rd_out_v)]
+        meme_v = self.create_memory_drd_sync()
+        m.Instance(meme_v, meme_v.name + "_valid", par, con)
 
+        par = [('data_width', node_width), ('addr_width', node_add_width)]
+        con = [('clk', clk), ('we', we), ('re', re), ('raddr1', rd_nd_1), ('raddr2', rd_nd_2), ('waddr', wr_addr),
+               ('din', wr_data), ('dout1', pe1_rd_out), ('dout2', pe1_rd_out)]
+        meme_d = self.create_memory_drd_sync()
+        m.Instance(meme_d, meme_d.name, par, con)
+
+        initialize_regs(m)
         self.cache[name] = m
         return m
 
-    #todo
+    # todo
     def create_node_connections_memory(self, qty_nodes):
         name = 'node_pe_rel_memory'
         if name in self.cache.keys():
@@ -344,7 +304,7 @@ class SAComponents:
         par = [('data_width', qty_nodes * distance_width), ('addr_width', ceil(log2(qty_nodes)))]
         con = [('clk', clk), ('we', mem_we), ('re', re_r), ('raddr1', rd_pe_1_r), ('raddr2', rd_pe_2_r),
                ('waddr', mem_waddr), ('din', config_data), ('dout1', pe_1_out), ('dout2', pe_2_out)]
-        memory_dual_read = self.create_memory_dual_read_rd_sync()
+        memory_dual_read = self.create_memory_drd_sync()
         m.Instance(memory_dual_read, memory_dual_read.name, par, con)
         m.EmbeddedCode('//---------------')
         # ----------------------
@@ -352,8 +312,11 @@ class SAComponents:
         self.cache[name] = m
         return m
 
+
 comp = SAComponents()
 
+# node-pe relational memory
+comp.create_nd_pe_rel_controller(16).to_verilog('test.v')
 
 '''
 # random verilog creation test

@@ -53,4 +53,4 @@ def create_random_generator_test_bench_hw():
     print(rslt)
 
 
-#create_random_generator_test_bench_hw()
+create_random_generator_test_bench_hw()
