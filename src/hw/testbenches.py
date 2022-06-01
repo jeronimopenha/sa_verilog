@@ -27,7 +27,7 @@ def create_random_generator_test_bench_hw():
     par = []
     con = [('clk', clk), ('rst', rst), ('en', rnd_en), ('seed', rnd_seed), ('rnd', rnd_rnd)]
     sa_comp = SAComponents()
-    rnd_module = sa_comp.create_random_generator()
+    rnd_module = sa_comp.create_random_generator_11b()
     m.Instance(rnd_module, rnd_module.name, par, con)
 
     initialize_regs(m, {'clk': 0, 'rst': 1, 'rnd_en': 0})
