@@ -43,8 +43,8 @@ class SAComponents:
         self.cache[name] = m
         return m
 
-    def create_ncn_memory(self, n_cells: int) -> Module:
-        name = 'ncn_memory'
+    def create_cnc_memory(self, n_cells: int) -> Module:
+        name = 'cnc_memory'
         if name in self.cache.keys():
             return self.cache[name]
 
@@ -52,7 +52,6 @@ class SAComponents:
 
         m = Module(name)
 
-        #init_file = m.Parameter('init_file', 'mem_file.txt')
         data_width = m.Parameter('data_width', bits)
         addr_width = m.Parameter('addr_width', bits)
 
@@ -99,7 +98,8 @@ class SAComponents:
             dout1(0),
             dout2(0),
             For(i(0), i < Power(2, addr_width), i.inc())(
-                mem_data[i](0)
+                mem_data[i](0),
+                mem_v[i](0),
             ),
             #Systask('readmemh', init_file, mem_data)
         )
@@ -107,9 +107,19 @@ class SAComponents:
         self.cache[name] = m
         return m
 
-    def create_sa_pe
+    def create_manhatan_dist_calc(self, n_cells:int) -> Module:
+        name = 'manhatan_dist_calc'
+        if name in self.cache.keys():
+            return self.cache[name]
+
+        m = Module(name)
+        
+        bits = ceil(log2(n_cells))
+
+        clk = m.Input('clk')
+        cell1 = m.Input('cell1', )
 
 comp = SAComponents()
 
-print(comp.create_ncn_memory(16).to_verilog())
+print(comp.create_cnc_memory(16).to_verilog())
 #print(comp.create_random_generator_11b().to_verilog())
