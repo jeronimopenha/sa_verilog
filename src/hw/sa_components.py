@@ -19,7 +19,7 @@ class SAComponents:
         name = 'random_generator_11b'
         if name in self.cache.keys():
             return self.cache[name]
-        
+
         bits = 11
 
         m = Module(name)
@@ -58,7 +58,7 @@ class SAComponents:
         clk = m.Input('clk')
         we = m.Input('we')
         re = m.Input('re')
-        
+
         waddr = m.Input('waddr', addr_width)
         din = m.Input('din', data_width)
         din_v = m.Input('din_v')
@@ -71,12 +71,12 @@ class SAComponents:
         dout2 = m.OutputReg('dout2', data_width)
         dout2_v = m.OutputReg('dout2_v')
 
-        #m.EmbeddedCode(
+        # m.EmbeddedCode(
         #    '(* ramstyle = "AUTO, no_rw_check" *) reg  [data_width-1:0] mem[0:2**addr_width-1];')
-        #m.EmbeddedCode('/*')
+        # m.EmbeddedCode('/*')
         mem_data = m.Reg('mem_data', data_width, Power(2, addr_width))
         mem_v = m.Reg('mem_v', data_width)
-        #m.EmbeddedCode('*/')
+        # m.EmbeddedCode('*/')
 
         m.Always(Posedge(clk))(
             If(we)(
@@ -86,7 +86,7 @@ class SAComponents:
             If(re)(
                 dout1(mem_data[raddr1]),
                 dout1_v(mem_v[raddr1]),
-                
+
                 dout2(mem_data[raddr2]),
                 dout2_v(mem_v[raddr2]),
             )
@@ -107,19 +107,46 @@ class SAComponents:
         self.cache[name] = m
         return m
 
-    def create_manhatan_dist_calc(self, n_cells:int) -> Module:
+    def create_manhatan_dist_calc(self, n_cells: int) -> Module:
         name = 'manhatan_dist_calc'
         if name in self.cache.keys():
             return self.cache[name]
 
         m = Module(name)
-        
+
         bits = ceil(log2(n_cells))
 
         clk = m.Input('clk')
-        cell1 = m.Input('cell1', )
+        cell1 = m.Input('cell1', bits)
+        cell2 = m.Input('cell2', bits)
+        manhatan = m.OutputReg('manhatan', bits)
+
+        parc_1 = m.Reg('parc_1', bits)
+        parc_2 = m.Reg('parc_2', bits)
+        l1 = m.Wire('l1', bits)
+        l2 = m.Wire('l2', bits)
+        c1 = m.Wire('c1', bits)
+        c2 = m.Wire('c2', bits)
+
+        l1.assign(Cat(Int(0, bits//2, 2), cell1[0:bits//2]))
+        l2.assign(Cat(Int(0, bits//2, 2), cell2[0:bits//2]))
+        c1.assign(Cat(Int(0, bits//2, 2), cell1[bits//2:cell1.width]))
+        c2.assign(Cat(Int(0, bits//2, 2), cell2[bits//2:cell2.width]))
+
+        m.Always(Posedge(clk))(
+            parc_1(Mux(l1 < l2, l2-l1, l1-l2)),
+            parc_2(Mux(c1 < c2, c2-c1, c1-c2)),
+            manhatan(parc_1 + parc_2),
+        )
+
+        initialize_regs(m)
+        self.cache[name] = m
+        return m
+
+
+    def create_sa_thread(self)->Module:
+        pass
 
 comp = SAComponents()
 
-print(comp.create_cnc_memory(16).to_verilog())
-#print(comp.create_random_generator_11b().to_verilog())
+comp.create_manhatan_dist_calc(16).to_verilog("manhatan.v")
