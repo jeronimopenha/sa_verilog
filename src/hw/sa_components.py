@@ -48,7 +48,7 @@ class SAComponents:
             If(wr)(mem[wr_addr](wr_data)),
         )
 
-        #initialize_regs(m)
+        # initialize_regs(m)
         self.cache[name] = m
         return m
 
@@ -73,8 +73,8 @@ class SAComponents:
 
         th = m.OutputReg("th", t_bits)
         v = m.OutputReg("v")
-        cell1 = m.Output("cell1", bits)
-        cell2 = m.Output("cell2", bits)
+        cell1 = m.OutputReg("cell1", bits)
+        cell2 = m.OutputReg("cell2", bits)
 
         m_rd = m.Reg("m_rd")
         m_rd_addr = m.Reg("m_rd_addr", t_bits)
@@ -84,11 +84,12 @@ class SAComponents:
         m_wr_data = m.Reg("m_wr_data", m_width)
         sum = m.Wire('sum', m_width)
         init_mem = m.Reg("init_mem", n_threads)
-        done_mem = m.Reg("done_mem", t_bits)
+        done_mem = m.Reg("done_mem", n_threads)
         done.assign(Uand(done_mem))
-        cell1.assign(m_out1[0: cell1.width])
-        cell2.assign(m_out1[cell2.width: m_out1.width])
-        sum.assign(Mux(init_mem[m_wr_addr], m_out1 + 1, 1))
+        # flag_init = m.Reg('flag_init')
+
+        p_addr = m.Reg('p_addr', t_bits)
+        p_rd = m.Reg('p_rd')
 
         m.Always(Posedge(clk))(
             If(rst)(
@@ -97,27 +98,35 @@ class SAComponents:
                 done_mem(0),
                 m_rd(0),
                 v(0),
-                th(0),
+                cell1(0),
+                cell2(0),
+                p_rd(0),
+                p_addr(0),
             ).Elif(start)(
-                init_mem[m_rd_addr](1),
                 m_rd(1),
-                v(~done_mem[m_rd_addr]),
-                th(m_rd_addr),
-                If(m_rd_addr == n_threads - 1)(
-                    m_rd_addr(0),
-                ).Else(
-                    m_rd_addr.inc(),
+                m_rd_addr.inc(),
+                p_addr(m_rd_addr),
+                p_rd(m_rd),
+                th(p_addr),
+                v(Mux(done_mem[p_addr], 0, p_rd)),
+                m_wr(p_rd),
+                m_wr_addr(p_addr),
+                If(p_rd)(
+                    If(init_mem[p_addr])(
+                        cell1(m_out1[0:cell1.width]),
+                        cell2(m_out1[cell1.width:m_out1.width]),
+                        m_wr_data(m_out1 + 1),
+                    ).Else(
+                        init_mem[p_addr](1),
+                        cell1(1),
+                        cell2(0),
+                        m_wr_data(2),
+                    ),
+                ),
+                If(m_out1 == (n_cells * n_cells)-2)(
+                    done_mem[p_addr](1),
                 )
             )
-        )
-
-        m.Always(Posedge(clk))(
-            If(sum == n_cells-2)(
-                done_mem[m_rd_addr](1)
-            ),
-            m_wr_addr(m_rd_addr),
-            m_wr(m_rd),
-            m_wr_data(sum)
         )
 
         par = []
@@ -147,8 +156,8 @@ class SAComponents:
         t_bits = 1 if t_bits == 0 else t_bits
 
 
-#comp = SAComponents()
+# comp = SAComponents()
 # comp.create_thread().to_verilog('thread.v')
 # comp.create_arbiter().to_verilog('arbiter.v')
 # comp.create_memory_2r_1w(32, 8).to_verilog('memory_2r_1w.v')
-#comp.create_threads().to_verilog("threads.v")
+# comp.create_threads().to_verilog("threads.v")

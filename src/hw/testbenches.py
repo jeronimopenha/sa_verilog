@@ -49,7 +49,7 @@ def create_threads_test_bench(comp: SAComponents):
         EmbeddedCode("@(posedge clk);"),
         rst(0),
         start(1),
-        Delay(1000),
+        Delay(100000),
         Finish(),
     )
     m.EmbeddedCode("always #5clk=~clk;")
