@@ -2,55 +2,68 @@ import random
 
 from veriloggen import *
 
-from src.hw.sa_components import SAComponents
-from src.hw.utils import initialize_regs
+from sa_components import SAComponents
+from utils import initialize_regs
+from math import ceil, log2
 
 
-def create_random_generator_test_bench_hw():
+def create_threads_test_bench(comp: SAComponents):
     # TEST BENCH MODULE
-    m = Module('test_random_generator')
-    m.EmbeddedCode('\n//Standar I/O signals - Begin')
+    m = Module('test_threads')
     clk = m.Reg('clk')
     rst = m.Reg('rst')
-    m.EmbeddedCode('//Standar I/O signals - End')
+    start = m.Reg('start')
 
-    # Random needs - Begin
-    m.EmbeddedCode('\n// Random needs - Begin')
-    bits = 11
-    rnd_en = m.Reg('rnd_en')
-    rnd_rnd = m.Wire('rnd_rnd', bits)
-    rnd_seed = m.Wire('rnd_seed', bits)
-    rnd_seed.assign(Int(random.randint(0, pow(2, bits)), rnd_seed.width, 2))
-    m.EmbeddedCode('// Random needs - end')
-    # Random needs - End
+    n_cells = comp.n_cells
+    bits = ceil(log2(n_cells))
+    m_width = bits * 2
+    n_threads = comp.n_threads
+    t_bits = ceil(log2(n_threads))
+    t_bits = 1 if t_bits == 0 else t_bits
+
+    t_done = m.Wire('t_done')
+    t_th = m.Wire('t_th', t_bits)
+    t_v = m.Wire('t_v')
+    t_cell1 = m.Wire('t_cell1', bits)
+    t_cell2 = m.Wire('t_cell2', bits)
 
     par = []
-    con = [('clk', clk), ('rst', rst), ('en', rnd_en), ('seed', rnd_seed), ('rnd', rnd_rnd)]
-    sa_comp = SAComponents()
-    rnd_module = sa_comp.create_random_generator_11b()
-    m.Instance(rnd_module, rnd_module.name, par, con)
+    con = [
+        ('clk', clk),
+        ('rst', rst),
+        ('start', start),
+        ('done', t_done),
+        ('th', t_th),
+        ('v', t_v),
+        ('cell1', t_cell1),
+        ('cell2', t_cell2)
+    ]
+    aux = comp.create_threads()
+    m.Instance(aux, aux.name, par, con)
 
-    initialize_regs(m, {'clk': 0, 'rst': 1, 'rnd_en': 0})
+    initialize_regs(m, {"clk": 0, "rst": 1, "start": 0})
     simulation.setup_waveform(m)
     m.Initial(
-        EmbeddedCode('@(posedge clk);'),
-        EmbeddedCode('@(posedge clk);'),
-        EmbeddedCode('@(posedge clk);'),
+        EmbeddedCode("@(posedge clk);"),
+        EmbeddedCode("@(posedge clk);"),
+        EmbeddedCode("@(posedge clk);"),
         rst(0),
-        rnd_en(1),
-        Delay(1000), Finish()
+        start(1),
+        Delay(1000),
+        Finish(),
     )
-    m.EmbeddedCode('always #5clk=~clk;')
-    m.Always(Posedge(clk))(
-        If(rnd_en)(
-            Display("%d", rnd_rnd[0:4])
-        )
-    )
+    m.EmbeddedCode("always #5clk=~clk;")
+    #m.Always(Posedge(clk))(
+    #    If(rnd_en)(
+    #        Display("%d", rnd_rnd[0:4])
+    #    )
+    #)
 
-    m.to_verilog('random_generator_test_bench_hw.v')
-    sim = simulation.Simulator(m, sim='iverilog')
+    m.to_verilog("threads_test_bench_hw.v")
+    sim = simulation.Simulator(m, sim="iverilog")
     rslt = sim.run()
     print(rslt)
 
 
-create_random_generator_test_bench_hw()
+comp = SAComponents()
+create_threads_test_bench(comp)

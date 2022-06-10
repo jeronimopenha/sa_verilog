@@ -6,7 +6,7 @@ import subprocess
 def to_bytes_string_list(conf_string):
     list_ret = []
     for i in range(len(conf_string), 0, -8):
-        list_ret.append(conf_string[i - 8:i])
+        list_ret.append(conf_string[i - 8 : i])
     return list_ret
 
 
@@ -27,7 +27,7 @@ def initialize_regs(module, values=None):
 
     if len(regs) > 0:
         if flag:
-            i = module.Integer('i_initial')
+            i = module.Integer("i_initial")
         s = module.Initial()
         for r in regs:
             if values:
@@ -38,9 +38,7 @@ def initialize_regs(module, values=None):
             else:
                 value = 0
             if r[1].dims:
-                genfor = For(i(0), i < r[1].dims[0], i.inc())(
-                    r[1][i](value)
-                )
+                genfor = For(i(0), i < r[1].dims[0], i.inc())(r[1][i](value))
                 s.add(genfor)
             else:
                 s.add(r[1](value))
