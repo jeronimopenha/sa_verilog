@@ -15,8 +15,8 @@ def create_threads_test_bench(comp: SAComponents):
     start = m.Reg('start')
 
     n_cells = comp.n_cells
-    bits = ceil(log2(n_cells))
-    m_width = bits * 2
+    c_bits = ceil(log2(n_cells))
+    m_width = c_bits * 2
     n_threads = comp.n_threads
     t_bits = ceil(log2(n_threads))
     t_bits = 1 if t_bits == 0 else t_bits
@@ -24,8 +24,8 @@ def create_threads_test_bench(comp: SAComponents):
     t_done = m.Wire('t_done')
     t_th = m.Wire('t_th', t_bits)
     t_v = m.Wire('t_v')
-    t_cell1 = m.Wire('t_cell1', bits)
-    t_cell2 = m.Wire('t_cell2', bits)
+    t_cell1 = m.Wire('t_cell1', c_bits)
+    t_cell2 = m.Wire('t_cell2', c_bits)
 
     par = []
     con = [

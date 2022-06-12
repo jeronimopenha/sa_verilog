@@ -24,18 +24,20 @@ class SAComponents:
         self.align_bits = align_bits
         self.n_threads = n_threads
 
-    def create_memory_2r_1w(self, width, depth):
+    def create_memory_2r_1w(self, width, depth) -> Module:
         name = "mem_2r_1w_width%d_depth%d" % (width, depth)
         if name in self.cache.keys():
             return self.cache[name]
 
         m = Module(name)
+        init_file = m.Parameter('init_file', 'mem_file.txt')
+
         clk = m.Input("clk")
         rd = m.Input("rd")
         rd_addr1 = m.Input("rd_addr1", depth)
         rd_addr2 = m.Input("rd_addr2", depth)
-        out_1 = m.OutputReg("out_1", width)
-        out_2 = m.OutputReg("out_2", width)
+        out1 = m.OutputReg("out1", width)
+        out2 = m.OutputReg("out2", width)
 
         wr = m.Input("wr")
         wr_addr = m.Input("wr_addr", depth)
@@ -44,18 +46,28 @@ class SAComponents:
         mem = m.Reg("mem", width, int(pow(2, depth)))
 
         m.Always(Posedge(clk))(
-            If(rd)(out_1(mem[rd_addr1]), out_2(mem[rd_addr2])),
+            If(rd)(out1(mem[rd_addr1]), out2(mem[rd_addr2])),
             If(wr)(mem[wr_addr](wr_data)),
         )
 
-        # initialize_regs(m)
+        m.EmbeddedCode('//synthesis translate_off')
+        i = m.Integer('i')
+        m.Initial(
+            out1(0),
+            out2(0),
+            For(i(0), i < Power(2, depth), i.inc())(
+                mem[i](0)
+            ),
+            Systask('readmemh', init_file, mem)
+        )
+        m.EmbeddedCode('//synthesis translate_on')
         self.cache[name] = m
         return m
 
-    def create_threads(self):
+    def create_threads(self) -> Module:
         n_cells = self.n_cells
-        bits = ceil(log2(n_cells))
-        m_width = bits * 2
+        c_bits = ceil(log2(n_cells))
+        m_width = c_bits * 2
         n_threads = self.n_threads
         t_bits = ceil(log2(n_threads))
         t_bits = 1 if t_bits == 0 else t_bits
@@ -73,8 +85,8 @@ class SAComponents:
 
         th = m.OutputReg("th", t_bits)
         v = m.OutputReg("v")
-        cell1 = m.OutputReg("cell1", bits)
-        cell2 = m.OutputReg("cell2", bits)
+        cell1 = m.OutputReg("cell1", c_bits)
+        cell2 = m.OutputReg("cell2", c_bits)
 
         m_rd = m.Reg("m_rd")
         m_rd_addr = m.Reg("m_rd_addr", t_bits)
@@ -150,7 +162,7 @@ class SAComponents:
             ("clk", clk),
             ("rd", m_rd),
             ("rd_addr1", m_rd_addr),
-            ("out_1", m_out),
+            ("out1", m_out),
             ("wr", m_wr),
             ("wr_addr", m_wr_addr),
             ("wr_data", m_wr_data),
@@ -160,6 +172,29 @@ class SAComponents:
 
         initialize_regs(m)
 
+        self.cache[name] = m
+        return m
+
+    def creat_cell_node_mem_pipe(self) -> Module:
+        n_cells = self.n_cells
+        c_bits = ceil(log2(n_cells))
+        n_threads = self.n_threads
+        t_bits = ceil(log2(n_threads))
+        t_bits = 1 if t_bits == 0 else t_bits
+        m_depth = c_bits + t_bits
+        m_width = c_bits +
+
+        name = "_%d_threads_%d_cells_cell_node_mem_pipe" % (n_threads, n_cells)
+        if name in self.cache.keys():
+            return self.cache[name]
+
+        m = Module(name)
+
+        clk = m.Input('clk')
+        cell1 = m.Input('cell1', c_bits)
+        cell2 = m.Input('cell2', c_bits)
+
+        initialize_regs(m)
         self.cache[name] = m
         return m
 
