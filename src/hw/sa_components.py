@@ -25,7 +25,7 @@ class SAComponents:
         self.n_threads = n_threads
 
     def create_memory_2r_1w(self, width, depth):
-        name = "mem_2r_1w_w%d_d%d" % (width, depth)
+        name = "mem_2r_1w_width%d_depth%d" % (width, depth)
         if name in self.cache.keys():
             return self.cache[name]
 
@@ -69,7 +69,7 @@ class SAComponents:
         clk = m.Input("clk")
         rst = m.Input("rst")
         start = m.Input("start")
-        done = m.Output("done")
+        done = m.OutputReg("done")
 
         th = m.OutputReg("th", t_bits)
         v = m.OutputReg("v")
@@ -78,54 +78,70 @@ class SAComponents:
 
         m_rd = m.Reg("m_rd")
         m_rd_addr = m.Reg("m_rd_addr", t_bits)
-        m_out1 = m.Wire("m_out1", m_width)
+        m_out = m.Wire("m_out", m_width)
         m_wr = m.Reg("m_wr")
         m_wr_addr = m.Reg("m_wr_addr", t_bits)
         m_wr_data = m.Reg("m_wr_data", m_width)
         sum = m.Wire('sum', m_width)
         init_mem = m.Reg("init_mem", n_threads)
         done_mem = m.Reg("done_mem", n_threads)
-        done.assign(Uand(done_mem))
-        # flag_init = m.Reg('flag_init')
 
         p_addr = m.Reg('p_addr', t_bits)
         p_rd = m.Reg('p_rd')
 
         m.Always(Posedge(clk))(
             If(rst)(
-                init_mem(0),
-                m_rd_addr(0),
-                done_mem(0),
+                done(0),
+            ).Else(
+                done(Uand(done_mem))
+            ),
+        )
+
+        m.Always(Posedge(clk))(
+            If(rst)(
+                m_rd_addr(n_threads-1),
                 m_rd(0),
-                v(0),
-                cell1(0),
-                cell2(0),
                 p_rd(0),
                 p_addr(0),
             ).Elif(start)(
                 m_rd(1),
-                m_rd_addr.inc(),
                 p_addr(m_rd_addr),
                 p_rd(m_rd),
-                th(p_addr),
-                v(Mux(done_mem[p_addr], 0, p_rd)),
-                m_wr(p_rd),
-                m_wr_addr(p_addr),
+                If(m_rd_addr == n_threads - 1)(
+                    m_rd_addr(0),
+                ).Else(
+                    m_rd_addr.inc(),
+                ),
+            )
+        )
+
+        m.Always(Posedge(clk))(
+            If(rst)(
+                init_mem(0),
+                done_mem(0),
+                v(0),
+                cell1(0),
+                cell2(0),
+            ).Else(
                 If(p_rd)(
                     If(init_mem[p_addr])(
-                        cell1(m_out1[0:cell1.width]),
-                        cell2(m_out1[cell1.width:m_out1.width]),
-                        m_wr_data(m_out1 + 1),
+                        cell1(m_out[0:cell1.width]),
+                        cell2(m_out[cell1.width:m_out.width]),
+                        m_wr_data(m_out + 1),
                     ).Else(
                         init_mem[p_addr](1),
                         cell1(1),
                         cell2(0),
                         m_wr_data(2),
                     ),
+                    If(m_out == (n_cells * n_cells)-2)(
+                        done_mem[p_addr](1),
+                    ),
+                    m_wr_addr(p_addr),
+                    m_wr(1),
+                    th(p_addr),
+                    v(Mux(done_mem[p_addr], 0, 1)),
                 ),
-                If(m_out1 == (n_cells * n_cells)-2)(
-                    done_mem[p_addr](1),
-                )
             )
         )
 
@@ -134,7 +150,7 @@ class SAComponents:
             ("clk", clk),
             ("rd", m_rd),
             ("rd_addr1", m_rd_addr),
-            ("out_1", m_out1),
+            ("out_1", m_out),
             ("wr", m_wr),
             ("wr_addr", m_wr_addr),
             ("wr_data", m_wr_data),
