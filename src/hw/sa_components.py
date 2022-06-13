@@ -182,7 +182,7 @@ class SAComponents:
         t_bits = ceil(log2(n_threads))
         t_bits = 1 if t_bits == 0 else t_bits
         m_depth = c_bits + t_bits
-        m_width = c_bits +
+        m_width = c_bits + 1
 
         name = "_%d_threads_%d_cells_cell_node_mem_pipe" % (n_threads, n_cells)
         if name in self.cache.keys():
@@ -191,23 +191,129 @@ class SAComponents:
         m = Module(name)
 
         clk = m.Input('clk')
-        cell1 = m.Input('cell1', c_bits)
-        cell2 = m.Input('cell2', c_bits)
+        cell1_i = m.Input('cell1_i', c_bits)
+        cell2_i = m.Input('cell2_i', c_bits)
+        v_i = m.Input('v_i')
+        cell1_o = m.OutputReg('cell1_o', c_bits)
+        cell2_o = m.OutputReg('cell2_o', c_bits)
+        v_o = m.OutputReg('v_o')
+        node1 = m.Output('node1', m_width)
+        node2 = m.Output('node2', m_width)
+        wr = m.Input("wr")
+        wr_addr = m.Input("wr_addr", m_depth)
+        wr_data = m.Input("wr_data", m_width)
+
+        m.Always(Posedge(clk))(
+            cell1_o(cell1_i),
+            cell2_o(cell2_i),
+            v_o(v_i)
+        )
+
+        par = []
+        con = [
+            ('clk', clk),
+            ('rd', 1),
+            ('rd_addr1', cell1_i),
+            ('rd_addr2', cell2_i),
+            ('out1', node1),
+            ('out2', node2),
+            ('wr', wr),
+            ('wr_addr', wr_addr),
+            ('wr_data', wr_data)
+        ]
+        aux = self.create_memory_2r_1w(m_width, m_depth)
+        m.Instance(aux, aux.name, par, con)
 
         initialize_regs(m)
         self.cache[name] = m
         return m
 
-    def create_sa_pipeline(self):
+    def create_sa(self) -> Module:
         n_cells = self.n_cells
-        bits = ceil(log2(n_cells))
-        m_depth = bits * 2
+        c_bits = ceil(log2(n_cells))
         n_threads = self.n_threads
         t_bits = ceil(log2(n_threads))
         t_bits = 1 if t_bits == 0 else t_bits
+        m_depth = c_bits + t_bits
+        m_width = c_bits + 1
+
+        name = "sa_%d_threads_%d_cells" % (n_threads, n_cells)
+        if name in self.cache.keys():
+            return self.cache[name]
+
+        m = Module(name)
+
+        clk = m.Input('clk')
+        rst = m.Input('rst')
+
+        # TODO
+        start = m.Reg('start')
+
+        m.Always(Posedge(clk))(
+            If(rst)(
+                start(0),
+            ).Else(
+                start(1),
+            )
+        )
+
+        th_done = m.Wire('th_done')
+        th_v = m.Wire('th_v')
+        th = m.Wire('th', t_bits)
+        th_cell1 = m.Wire('th_cell1', c_bits)
+        th_cell2 = m.Wire('th_cell2', c_bits)
+        par = []
+        con = [
+            ('clk', clk),
+            ('rst', rst),
+            ('start', start),
+            ('done', th_done),
+            ('v', th_v),
+            ('th', th),
+            ('cell1', th_cell1),
+            ('cell2', th_cell2),
+        ]
+        aux = self.create_threads()
+        m.Instance(aux, aux.name, par, con)
+
+        cnmp_cell1 = m.Wire('cnmp_cell1', c_bits)
+        cnmp_cell2 = m.Wire('cnmp_cell2', c_bits)
+        cnmp_v = m.Wire('cnmp_v')
+        cnmp_node1 = m.Wire('cnmp_node1', m_width)
+        cnmp_node2 = m.Wire('cnmp_node2', m_width)
+        cnmp_wr = m.Wire('cnmp_wr',)
+        cnmp_wr_addr = m.Wire('cnmp_wr_addr', m_depth)
+        cnmp_wr_data = m.Wire('cnmp_wr_data', m_depth)
+
+        # TODO
+        cnmp_wr.assign(0)
+        cnmp_wr_addr.assign(0)
+        cnmp_wr_data.assign(0)
+
+        par = []
+        con = [
+            ('clk', clk),
+            ('cell1_i', th_cell1),
+            ('cell2_i', th_cell2),
+            ('v_i', th_v),
+            ('cell1_o', cnmp_cell1),
+            ('cell1_o', cnmp_cell2),
+            ('v_o', cnmp_v),
+            ('node1', cnmp_node1),
+            ('node2', cnmp_node2),
+            ('wr', cnmp_wr),
+            ('wr_addr', cnmp_wr_addr),
+            ('wr_data', cnmp_wr_data)
+        ]
+        aux = self.creat_cell_node_mem_pipe()
+        m.Instance(aux, aux.name, par, con)
+
+        return m
 
 
-# comp = SAComponents()
+comp = SAComponents()
+comp.create_sa().to_verilog('sa.v')
+# comp.creat_cell_node_mem_pipe().to_verilog('cell_node_mem_pipe.v')
 # comp.create_thread().to_verilog('thread.v')
 # comp.create_arbiter().to_verilog('arbiter.v')
 # comp.create_memory_2r_1w(32, 8).to_verilog('memory_2r_1w.v')
