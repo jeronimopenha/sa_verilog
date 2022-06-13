@@ -1,1 +1,2 @@
+networkx==2.7.1
 veriloggen==2.0.2
