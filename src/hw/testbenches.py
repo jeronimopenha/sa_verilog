@@ -1,14 +1,14 @@
 import random
-import networkx as nx
 
 from veriloggen import *
 
 from sa_components import SAComponents
-from utils import initialize_regs
+from utils import initialize_regs, create_initial_layer
 from math import ceil, log2
 
 
-def create_threads_test_bench(comp: SAComponents):
+def create_threads_test_bench():
+    comp = SAComponents()
     # TEST BENCH MODULE
     m = Module('test_threads')
     clk = m.Reg('clk')
@@ -66,27 +66,10 @@ def create_threads_test_bench(comp: SAComponents):
     print(rslt)
 
 
-def create_sa_test_bench(comp: SAComponents, dot: str):
-    g = nx.Graph(nx.nx_pydot.read_dot(dot))
-    print(g.nodes)
-    print(g.edges)
-
-    nodes = list(g.nodes)
-    edges = list(g.edges)
-    nodes_to_idx = {}
-    neighbors = {}
-    for i in range(len(nodes)):
-        nodes_to_idx[nodes[i]] = i
-
-    for e in edges:
-        if nodes_to_idx[e[0]] not in neighbors.keys():
-            neighbors[nodes_to_idx[e[0]]] = []
-        if nodes_to_idx[e[1]] not in neighbors.keys():
-            neighbors[nodes_to_idx[e[1]]] = []
-        neighbors[nodes_to_idx[e[0]]].append(nodes_to_idx[e[1]])
-        neighbors[nodes_to_idx[e[1]]].append(nodes_to_idx[e[0]])
-    print(nodes_to_idx)
-    print(neighbors)
+def create_sa_test_bench(dot: str):
+    
+    create_initial_layer(dot)
+    comp = SAComponents()
 
     # TEST BENCH MODULE
     m = Module('test_threads')
@@ -145,7 +128,4 @@ def create_sa_test_bench(comp: SAComponents, dot: str):
     print(rslt)
 
 
-comp = SAComponents()
-# create_threads_test_bench(comp)
-create_sa_test_bench(
-    comp, "/home/jeronimo/Documentos/GIT/sa_verilog/dot/simple.dot")
+create_sa_test_bench("/home/jeronimo/Documentos/GIT/sa_verilog/dot/simple.dot")
