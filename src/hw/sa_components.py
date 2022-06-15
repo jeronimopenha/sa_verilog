@@ -6,23 +6,24 @@ from src.utils import util
 class SAComponents:
     _instance = None
 
-    def __new__(cls):
-        if cls._instance is None:
-            cls._instance = super().__new__(cls)
-        return cls._instance
+    #def __new__(cls):
+    #    if cls._instance is None:
+    #        cls._instance = super().__new__(cls)
+    #    return cls._instance
 
     def __init__(
         self,
-        n_cells: int = 16,
-        n_threads: int = 4,
-        n_neighbors: int = 5,
+        sa_graph: util.SaGraph,
+        n_threads: int = 1,
+        n_neighbors: int = 4,
         align_bits: int = 8,
     ):
-        self.cache = {}
-        self.n_cells = n_cells
+        self.sa_graph = sa_graph
+        self.n_cells = sa_graph.n_cells
         self.n_neighbors = n_neighbors
         self.align_bits = align_bits
         self.n_threads = n_threads
+        self.cache = {}
 
     def create_memory_2r_1w(self, width, depth) -> Module:
         name = "mem_2r_1w_width%d_depth%d" % (width, depth)
@@ -64,17 +65,22 @@ class SAComponents:
         self.cache[name] = m
         return m
 
-    def create_threads(self) -> Module:
-        n_cells = self.n_cells
-        c_bits = ceil(log2(n_cells))
-        m_width = c_bits * 2
-        n_threads = self.n_threads
-        t_bits = ceil(log2(n_threads))
-        t_bits = 1 if t_bits == 0 else t_bits
+    #FIXME - Change this component to run config times
+    def create_threads_controller(self) -> Module:
+        sa_graph = sa_graph
+        n_cells = sa_graph.n_cells
+        n_neighbors = n_neighbors
+        align_bits = align_bits
+        n_threads = n_threads
 
-        name = "_%d_threads_%d_cells" % (n_threads, n_cells)
+        name = "threads_controller_%dth_%dcells" % (n_threads, n_cells)
         if name in self.cache.keys():
             return self.cache[name]
+
+        c_bits = ceil(log2(n_cells))
+        m_width = c_bits * 2
+        t_bits = ceil(log2(n_threads))
+        t_bits = 1 if t_bits == 0 else t_bits
 
         m = Module(name)
 
@@ -175,71 +181,133 @@ class SAComponents:
         self.cache[name] = m
         return m
 
-    def creat_cell_node_mem_pipe(self) -> Module:
-        n_cells = self.n_cells
-        c_bits = ceil(log2(n_cells))
+    def create_cell_node_pipe(self) -> Module:
+        sa_graph = self.sa_graph
+        n_cells = self.sa_graph.n_cells
+        n_neighbors = self.n_neighbors
+        align_bits = self.align_bits
         n_threads = self.n_threads
+        
+        name = "cell_node_pipe_%dth_%dcells" % (n_threads, n_cells)
+        if name in self.cache.keys():
+            return self.cache[name]
+
+        c_bits = ceil(log2(n_cells))
         t_bits = ceil(log2(n_threads))
         t_bits = 1 if t_bits == 0 else t_bits
         m_depth = c_bits + t_bits
-        m_width = c_bits + 1
-
-        name = "_%d_threads_%d_cells_cell_node_mem_pipe" % (n_threads, n_cells)
-        if name in self.cache.keys():
-            return self.cache[name]
+        node_width = c_bits + 1
 
         m = Module(name)
 
         clk = m.Input('clk')
-        cell1_i = m.Input('cell1_i', c_bits)
-        cell2_i = m.Input('cell2_i', c_bits)
-        v_i = m.Input('v_i')
-        cell1_o = m.OutputReg('cell1_o', c_bits)
-        cell2_o = m.OutputReg('cell2_o', c_bits)
-        v_o = m.OutputReg('v_o')
-        node1 = m.Output('node1', m_width)
-        node2 = m.Output('node2', m_width)
-        wr = m.Input("wr")
-        wr_addr = m.Input("wr_addr", m_depth)
-        wr_data = m.Input("wr_data", m_width)
 
+        #data to pass
+        th_done_in = m.Input('th_done_in')
+        th_v_in = m.Input('th_v_in')
+        th_in = m.Input('th_in', t_bits)
+        th_cell1_in = m.Input('th_cell1_in', c_bits)
+        th_cell2_in = m.Input('th_cell2_in', c_bits)
+        
+        th_done_out = m.OutputReg('th_done_out')
+        th_v_out = m.OutputReg('th_v_out')
+        th_out = m.OutputReg('th_out', t_bits)
+        th_cell1_out = m.OutputReg('th_cell1_out', c_bits)
+        th_cell2_out = m.OutputReg('th_cell2_out', c_bits)
+
+        #data needed to exec
+        cell_wr = m.Input("cell_wr")
+        cell_wr_addr = m.Input("cell_wr_addr", m_depth)
+        cell_wr_node = m.Input("cell_wr_node", node_width)
+
+        node = m.Output('node', node_width)
+        
+        #passing pipeline data
         m.Always(Posedge(clk))(
-            cell1_o(cell1_i),
-            cell2_o(cell2_i),
-            v_o(v_i)
+            th_done_out(th_done_in),
+            th_v_out(th_v_in),
+            th_out(th_in),
+            th_cell1_out(th_cell1_in),
+            th_cell2_out(th_cell2_in),            
         )
 
         par = []
         con = [
             ('clk', clk),
             ('rd', 1),
-            ('rd_addr1', cell1_i),
-            ('rd_addr2', cell2_i),
-            ('out1', node1),
-            ('out2', node2),
-            ('wr', wr),
-            ('wr_addr', wr_addr),
-            ('wr_data', wr_data)
+            ('rd_addr1', th_cell1_in),
+            ('out1', node),
+            ('wr', cell_wr),
+            ('wr_addr', cell_wr_addr),
+            ('wr_data', cell_wr_node)
         ]
-        aux = self.create_memory_2r_1w(m_width, m_depth)
+        aux = self.create_memory_2r_1w(node_width, m_depth)
         m.Instance(aux, aux.name, par, con)
 
         util.initialize_regs(m)
         self.cache[name] = m
         return m
 
-    def create_sa(self) -> Module:
-        n_cells = self.n_cells
-        c_bits = ceil(log2(n_cells))
+    def create_cell_exec_pipe(self) -> Module:
+        sa_graph = self.sa_graph
+        n_cells = self.sa_graph.n_cells
+        n_neighbors = self.n_neighbors
+        align_bits = self.align_bits
         n_threads = self.n_threads
-        t_bits = ceil(log2(n_threads))
-        t_bits = 1 if t_bits == 0 else t_bits
-        m_depth = c_bits + t_bits
-        m_width = c_bits + 1
 
-        name = "sa_%d_threads_%d_cells" % (n_threads, n_cells)
+        name = "cell_exec_%dthreads_%dcells_%dneighbors" % (n_threads, n_cells, n_neighbors)
         if name in self.cache.keys():
             return self.cache[name]
+        
+        c_bits = ceil(log2(n_cells))
+        t_bits = ceil(log2(n_threads))
+        t_bits = 1 if t_bits == 0 else t_bits
+
+        m = Module(name)
+        clk = m.Input('clk')
+        rst = m.Input('rst')
+
+        #data to pass
+        th_done_in = m.Input('th_done_in')
+        th_v_in = m.Input('th_v_in')
+        th_in = m.Input('th_in', t_bits)
+        th_cell1_in = m.Input('th_cell1_in', c_bits)
+        th_cell2_in = m.Input('th_cell2_in', c_bits)
+        
+        th_done_out = m.Output('th_done_out')
+        th_v_out = m.Output('th_v_out')
+        th_out = m.Output('th_out', t_bits)
+        th_cell1_out = m.Output('th_cell1_out', c_bits)
+        th_cell2_out = m.Output('th_cell2_out', c_bits)
+
+        #data to send
+
+        m.Always(Posedge(clk))(
+            th_done_out(th_done_in),
+            th_v_out(th_v_in),
+            th_out(th_in),
+            th_cell1_out(th_cell1_in),
+            th_cell2_out(th_cell2_in),            
+        )
+
+        util.initialize_regs(m)
+        return m
+
+    def create_sa(self) -> Module:
+        sa_graph = self.sa_graph
+        n_cells = self.sa_graph.n_cells
+        n_neighbors = self.n_neighbors
+        align_bits = self.align_bits
+        n_threads = self.n_threads
+
+        name = "sa_%dthreads_%dcells_%dneighbors" % (
+            n_threads, n_cells, n_neighbors)
+        if name in self.cache.keys():
+            return self.cache[name]
+
+        c_bits = ceil(log2(n_cells))
+        t_bits = ceil(log2(n_threads))
+        t_bits = 1 if t_bits == 0 else t_bits
 
         m = Module(name)
 
@@ -257,6 +325,7 @@ class SAComponents:
             )
         )
 
+        #FIXME - Change this component to run config times
         th_done = m.Wire('th_done')
         th_v = m.Wire('th_v')
         th = m.Wire('th', t_bits)
@@ -273,7 +342,7 @@ class SAComponents:
             ('cell1', th_cell1),
             ('cell2', th_cell2),
         ]
-        aux = self.create_threads()
+        aux = self.create_threads_controller()
         m.Instance(aux, aux.name, par, con)
 
         cnmp_cell1 = m.Wire('cnmp_cell1', c_bits)
@@ -305,16 +374,8 @@ class SAComponents:
             ('wr_addr', cnmp_wr_addr),
             ('wr_data', cnmp_wr_data)
         ]
-        aux = self.creat_cell_node_mem_pipe()
+        aux = self.create_cell_node_pipe()
         m.Instance(aux, aux.name, par, con)
-
+        util.initialize_regs(m)
         return m
 
-
-comp = SAComponents()
-comp.create_sa().to_verilog('sa.v')
-# comp.creat_cell_node_mem_pipe().to_verilog('cell_node_mem_pipe.v')
-# comp.create_thread().to_verilog('thread.v')
-# comp.create_arbiter().to_verilog('arbiter.v')
-# comp.create_memory_2r_1w(32, 8).to_verilog('memory_2r_1w.v')
-# comp.create_threads().to_verilog("threads.v")

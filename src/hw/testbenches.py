@@ -39,7 +39,7 @@ def create_threads_test_bench():
         ('cell1', t_cell1),
         ('cell2', t_cell2)
     ]
-    aux = comp.create_threads()
+    aux = comp.create_threads_controller()
     m.Instance(aux, aux.name, par, con)
 
     util.initialize_regs(m, {"clk": 0, "rst": 1, "start": 0})
@@ -76,8 +76,7 @@ def create_sa_test_bench(dot: str):
         c_n_i, n_c_i = sa_graph.get_initial_grid()
         c_n.append(c_n_i)
         n_c.append(n_c_i)
-    comp = SAComponents(n_threads=n_threads,
-                        n_cells=sa_graph.n_cells, n_neighbors=4)
+    comp = SAComponents(sa_graph=sa_graph)
 
     # TEST BENCH MODULE
     m = Module('test_sa')
@@ -110,7 +109,7 @@ def create_sa_test_bench(dot: str):
         ('cell1', t_cell1),
         ('cell2', t_cell2)
     ]
-    aux = comp.create_threads()
+    aux = comp.create_threads_controller()
     m.Instance(aux, aux.name, par, con)
 
     # cells to nodes
@@ -153,7 +152,7 @@ def create_sa_test_bench(dot: str):
         ('wr_addr', c1_wr_addr),
         ('wr_data', c1_wr_data),
     ]
-    aux = comp.create_threads()
+    aux = comp.create_threads_controller()
     m.Instance(aux, aux.name, par, con)
 
     util.initialize_regs(m, {"clk": 0, "rst": 1, "start": 0})
