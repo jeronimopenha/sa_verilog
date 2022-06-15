@@ -1,6 +1,6 @@
 from math import ceil, log2, sqrt
 from veriloggen import *
-from utils import initialize_regs
+from src.utils import util
 
 
 class SAComponents:
@@ -170,7 +170,7 @@ class SAComponents:
         aux = self.create_memory_2r_1w(m_width, t_bits)
         m.Instance(aux, aux.name, par, con)
 
-        initialize_regs(m)
+        util.initialize_regs(m)
 
         self.cache[name] = m
         return m
@@ -224,7 +224,7 @@ class SAComponents:
         aux = self.create_memory_2r_1w(m_width, m_depth)
         m.Instance(aux, aux.name, par, con)
 
-        initialize_regs(m)
+        util.initialize_regs(m)
         self.cache[name] = m
         return m
 

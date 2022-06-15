@@ -65,20 +65,20 @@ class SaGraph:
         self.n_cells_sqrt = ceil(sqrt(self.n_nodes))
         self.n_cells = pow(self.n_cells_sqrt, 2)
 
-    def get_total_cost(self,c_n, n_c):
+    def get_total_cost(self, c_n, n_c):
         costs = {}
         cost = 0
         for i in range(len(c_n)):
-            if c_n[i] is None: continue
+            if c_n[i] is None:
+                continue
             cost_ = 0
             for n in self.neighbors[c_n[i]]:
                 cost += self.get_manhattan_distance(i, n_c[n])
                 cost_ += cost
             costs[c_n[i]] = cost_
-        #print(costs)
+        # print(costs)
         #print(sorted(costs.items(), key=lambda x: x[0]))
-        return cost#costs
-
+        return cost  # costs
 
     def get_cost(self, n_c, node1, node2, cell1, cell2):
         cost1_b = 0
@@ -88,7 +88,7 @@ class SaGraph:
         if node1 is not None:
             for n in self.neighbors[node1]:
                 cost1_b += self.get_manhattan_distance(cell1, n_c[n])
-                if cell2 == n_c[n]: 
+                if cell2 == n_c[n]:
                     cost1_a += self.get_manhattan_distance(cell1, cell2)
                 else:
                     cost1_a += self.get_manhattan_distance(cell2, n_c[n])
@@ -108,11 +108,13 @@ class SaGraph:
         cell2_y = idx2 // self.n_cells_sqrt
         return abs(cell1_y - cell2_y) + abs(cell1_x - cell2_x)
 
-def print_matrix_to_str(c_n)->str:
+
+def print_matrix_to_str(c_n) -> str:
     s = []
     for i in range(len(c_n)):
         pass
     return " "
+
 
 def to_bytes_string_list(conf_string):
     list_ret = []

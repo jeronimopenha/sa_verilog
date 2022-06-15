@@ -2,8 +2,8 @@ import random
 
 from veriloggen import *
 
-from sa_components import SAComponents
-from utils import initialize_regs, create_initial_layer
+from src.hw.sa_components import SAComponents
+from src.utils import util
 from math import ceil, log2
 
 
@@ -42,7 +42,7 @@ def create_threads_test_bench():
     aux = comp.create_threads()
     m.Instance(aux, aux.name, par, con)
 
-    initialize_regs(m, {"clk": 0, "rst": 1, "start": 0})
+    util.initialize_regs(m, {"clk": 0, "rst": 1, "start": 0})
     simulation.setup_waveform(m)
     m.Initial(
         EmbeddedCode("@(posedge clk);"),
@@ -67,12 +67,20 @@ def create_threads_test_bench():
 
 
 def create_sa_test_bench(dot: str):
-    
-    create_initial_layer(dot)
-    comp = SAComponents()
+    # FIXME
+    n_threads = 1
+    sa_graph = util.SaGraph(dot)
+    c_n = []
+    n_c = []
+    for i in range(n_threads):
+        c_n_i, n_c_i = sa_graph.get_initial_grid()
+        c_n.append(c_n_i)
+        n_c.append(n_c_i)
+    comp = SAComponents(n_threads=n_threads,
+                        n_cells=sa_graph.n_cells, n_neighbors=4)
 
     # TEST BENCH MODULE
-    m = Module('test_threads')
+    m = Module('test_sa')
     clk = m.Reg('clk')
     rst = m.Reg('rst')
     start = m.Reg('start')
@@ -80,7 +88,7 @@ def create_sa_test_bench(dot: str):
     n_cells = comp.n_cells
     c_bits = ceil(log2(n_cells))
     m_width = c_bits * 2
-    n_threads = comp.n_threads
+    #n_threads = comp.n_threads
     t_bits = ceil(log2(n_threads))
     t_bits = 1 if t_bits == 0 else t_bits
 
@@ -90,6 +98,7 @@ def create_sa_test_bench(dot: str):
     t_cell1 = m.Wire('t_cell1', c_bits)
     t_cell2 = m.Wire('t_cell2', c_bits)
 
+    # threads controller
     par = []
     con = [
         ('clk', clk),
@@ -104,7 +113,50 @@ def create_sa_test_bench(dot: str):
     aux = comp.create_threads()
     m.Instance(aux, aux.name, par, con)
 
-    initialize_regs(m, {"clk": 0, "rst": 1, "start": 0})
+    # cells to nodes
+    # the reading is done first for the firs cell and after for
+    # the second cell and this will happen over the pipeline
+
+    # pipeline regs
+    c1p_t_done = m.Wire('c1p_t_done')
+    c1p_t_th = m.Wire('c1p_t_th', t_bits)
+    c1p_t_v = m.Wire('c1p_t_v')
+    c1p_t_cell1 = m.Wire('c1p_t_cell1', c_bits)
+    c1p_t_cell2 = m.Wire('c1p_t_cell2', c_bits)
+
+    m.Always(Posedge(clk))(
+        c1p_t_done(t_done),
+        c1p_t_th(t_th),
+        c1p_t_v(t_v),
+        c1p_t_cell1(t_cell1),
+        c1p_t_cell2(t_cell2),
+    )
+
+    c1_rd = m.Wire('')
+    c1_rd_addr = m.Wire('')
+    c1_out = m.Wire('')
+    c1_wr = m.Wire('')
+    c1_wr_addr = m.Wire('')
+    c1_wr_data = m.Wire('')
+
+    # FIXME
+    c1_wr.assign(0)
+    c1_wr_addr.assign(0)
+    c1_wr_data.assign(0)
+    par = []
+    con = [
+        ('clk', clk),
+        ('rd', c1_rd),
+        ('rd_addr1', c1_rd_addr),
+        ('out1', c1_out),
+        ('wr', c1_wr),
+        ('wr_addr', c1_wr_addr),
+        ('wr_data', c1_wr_data),
+    ]
+    aux = comp.create_threads()
+    m.Instance(aux, aux.name, par, con)
+
+    util.initialize_regs(m, {"clk": 0, "rst": 1, "start": 0})
     simulation.setup_waveform(m)
     m.Initial(
         EmbeddedCode("@(posedge clk);"),
@@ -126,6 +178,3 @@ def create_sa_test_bench(dot: str):
     sim = simulation.Simulator(m, sim="iverilog")
     rslt = sim.run()
     print(rslt)
-
-
-create_sa_test_bench("/home/jeronimo/Documentos/GIT/sa_verilog/dot/simple.dot")
