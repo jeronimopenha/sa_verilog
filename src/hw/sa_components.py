@@ -1,4 +1,5 @@
 from math import ceil, log2, sqrt
+from tkinter import N
 from veriloggen import *
 from src.utils import util
 
@@ -6,7 +7,7 @@ from src.utils import util
 class SAComponents:
     _instance = None
 
-    #def __new__(cls):
+    # def __new__(cls):
     #    if cls._instance is None:
     #        cls._instance = super().__new__(cls)
     #    return cls._instance
@@ -65,7 +66,7 @@ class SAComponents:
         self.cache[name] = m
         return m
 
-    #FIXME - Change this component to run config times
+    # FIXME - Change this component to run config times
     def create_threads_controller(self) -> Module:
         sa_graph = sa_graph
         n_cells = sa_graph.n_cells
@@ -187,7 +188,7 @@ class SAComponents:
         n_neighbors = self.n_neighbors
         align_bits = self.align_bits
         n_threads = self.n_threads
-        
+
         name = "cell_node_pipe_%dth_%dcells" % (n_threads, n_cells)
         if name in self.cache.keys():
             return self.cache[name]
@@ -197,38 +198,73 @@ class SAComponents:
         t_bits = 1 if t_bits == 0 else t_bits
         m_depth = c_bits + t_bits
         node_width = c_bits + 1
+        m_width = node_width
 
         m = Module(name)
 
         clk = m.Input('clk')
+        rst = m.Input('rst')
 
-        #data to pass
+        # data to pass
         th_done_in = m.Input('th_done_in')
         th_v_in = m.Input('th_v_in')
         th_in = m.Input('th_in', t_bits)
         th_cell1_in = m.Input('th_cell1_in', c_bits)
         th_cell2_in = m.Input('th_cell2_in', c_bits)
-        
+
         th_done_out = m.OutputReg('th_done_out')
         th_v_out = m.OutputReg('th_v_out')
         th_out = m.OutputReg('th_out', t_bits)
         th_cell1_out = m.OutputReg('th_cell1_out', c_bits)
         th_cell2_out = m.OutputReg('th_cell2_out', c_bits)
 
-        #data needed to exec
-        cell_wr = m.Input("cell_wr")
-        cell_wr_addr = m.Input("cell_wr_addr", m_depth)
-        cell_wr_node = m.Input("cell_wr_node", node_width)
+        th_ch_in = m.Input('th_ch_in', t_bits)
+        flag_ch_in = m.Input('flag_ch_in')
 
+        th_ch_out = m.Input('th_ch_out', t_bits)
+        flag_ch_out = m.OutputReg('flag_ch_out')
+
+        # data needed to exec
         node = m.Output('node', node_width)
-        
-        #passing pipeline data
+
+        cell_wr0 = m.Reg("cell_wr0")
+        cell_wr_addr0 = m.Reg("cell_wr_addr0", m_depth)
+        cell_wr_node0 = m.Reg("cell_wr_node0", m_depth)
+
+        cell_wr1 = m.Reg("cell_wr1")
+        cell_wr_addr1 = m.Reg("cell_wr_addr1", m_depth)
+        cell_wr_node1 = m.Reg("cell_wr_node1", m_depth)
+
+        p_wr = m.Reg("p_wr1")
+        p_wr_addr = m.Reg("p_wr_addr1", m_depth)
+        p_wr_m = m.Reg("p_wr_m")
+
+        ch_b_m_wr = m.Reg('ch_b_m_wr')
+        ch_b_m_addr = m.Reg('ch_b_m_addr', t_bits)
+        ch_b_m_data = m.Reg('ch_b_m_data', (node_width*2) + (c_bits*2) + 2)
+
+        m_out0 = m.Wire('m_out0', m_width)
+        m_out1 = m.Wire('m_out1', m_width)
+        p_out0 = m.Wire('p_out0')
+        p_out1 = m.Wire('p_out1')
+
+        node.assign(Mux(p_out, m_out1, m_out0))
+
+        m.Always(Posedge(clk))(
+            If(th_v_out)(
+                ch_b_m_data(Cat(th_cell1_out, th_cell2_out, m_out0, m_out1, ))
+            )
+        )
+
+        # passing pipeline data
         m.Always(Posedge(clk))(
             th_done_out(th_done_in),
             th_v_out(th_v_in),
             th_out(th_in),
             th_cell1_out(th_cell1_in),
-            th_cell2_out(th_cell2_in),            
+            th_cell2_out(th_cell2_in),
+            th_ch_out(th_ch_in),
+            flag_ch_out(flag_ch_in),
         )
 
         par = []
@@ -236,10 +272,12 @@ class SAComponents:
             ('clk', clk),
             ('rd', 1),
             ('rd_addr1', th_cell1_in),
-            ('out1', node),
-            ('wr', cell_wr),
-            ('wr_addr', cell_wr_addr),
-            ('wr_data', cell_wr_node)
+            ('rd_addr2', th_cell2_in),
+            ('out1', m_out1),
+            ('out1', m_out2)
+            ('wr', cell_wr1),
+            ('wr_addr', cell_wr_addr1),
+            ('wr_data', cell_wr_node1)
         ]
         aux = self.create_memory_2r_1w(node_width, m_depth)
         m.Instance(aux, aux.name, par, con)
@@ -248,17 +286,18 @@ class SAComponents:
         self.cache[name] = m
         return m
 
-    def create_cell_exec_pipe(self) -> Module:
+    def create_cell1_exec_pipe(self) -> Module:
         sa_graph = self.sa_graph
         n_cells = self.sa_graph.n_cells
         n_neighbors = self.n_neighbors
         align_bits = self.align_bits
         n_threads = self.n_threads
 
-        name = "cell_exec_%dthreads_%dcells_%dneighbors" % (n_threads, n_cells, n_neighbors)
+        name = "cell_exec_%dthreads_%dcells_%dneighbors" % (
+            n_threads, n_cells, n_neighbors)
         if name in self.cache.keys():
             return self.cache[name]
-        
+
         c_bits = ceil(log2(n_cells))
         t_bits = ceil(log2(n_threads))
         t_bits = 1 if t_bits == 0 else t_bits
@@ -267,27 +306,27 @@ class SAComponents:
         clk = m.Input('clk')
         rst = m.Input('rst')
 
-        #data to pass
+        # data to pass
         th_done_in = m.Input('th_done_in')
         th_v_in = m.Input('th_v_in')
         th_in = m.Input('th_in', t_bits)
         th_cell1_in = m.Input('th_cell1_in', c_bits)
         th_cell2_in = m.Input('th_cell2_in', c_bits)
-        
+
         th_done_out = m.Output('th_done_out')
         th_v_out = m.Output('th_v_out')
         th_out = m.Output('th_out', t_bits)
         th_cell1_out = m.Output('th_cell1_out', c_bits)
         th_cell2_out = m.Output('th_cell2_out', c_bits)
 
-        #data to send
+        # data to send
 
         m.Always(Posedge(clk))(
             th_done_out(th_done_in),
             th_v_out(th_v_in),
             th_out(th_in),
             th_cell1_out(th_cell1_in),
-            th_cell2_out(th_cell2_in),            
+            th_cell2_out(th_cell2_in),
         )
 
         util.initialize_regs(m)
@@ -325,7 +364,7 @@ class SAComponents:
             )
         )
 
-        #FIXME - Change this component to run config times
+        # FIXME - Change this component to run config times
         th_done = m.Wire('th_done')
         th_v = m.Wire('th_v')
         th = m.Wire('th', t_bits)
@@ -378,4 +417,3 @@ class SAComponents:
         m.Instance(aux, aux.name, par, con)
         util.initialize_regs(m)
         return m
-
