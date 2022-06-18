@@ -49,16 +49,13 @@ def swap_algorithm(a):
                     n2 = a[j]
 
                 # troca cell1
-                if p_i == True:
-                    a[j] = n1
-                else:
-                    b[j] = n1
-
                 # troca cell2
                 if p_i == True:
+                    a[j] = n1
                     b[i] = n2
                 else:
                     a[i] = n2
+                    b[j] = n1
 
                 # acerta ponteiro cell2
                 if p_i == p_j:
