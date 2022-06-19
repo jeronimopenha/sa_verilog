@@ -394,6 +394,85 @@ class SAComponents:
         self.cache[name] = m
         return m
 
+    def create_neighbors_pipe(self) -> Module:
+        sa_graph = self.sa_graph
+        n_cells = self.sa_graph.n_cells
+        n_neighbors = self.n_neighbors
+        align_bits = self.align_bits
+        n_threads = self.n_threads
+
+        name = "neighbors_pipe_%dcells_%dneighbors" % (n_cells, n_neighbors)
+        if name in self.cache.keys():
+            return self.cache[name]
+
+        par = []
+        c_bits = ceil(log2(n_cells))
+        t_bits = ceil(log2(n_threads))
+        t_bits = 1 if t_bits == 0 else t_bits
+        m_depth = c_bits
+        node_bits = c_bits + 1
+        m_width = node_bits
+
+        m = Module(name)
+
+        clk = m.Input('clk')
+
+        # data to pass
+        th_done_in = m.Input('th_done_in')
+        th_v_in = m.Input('th_v_in')
+        th_in = m.Input('th_in', t_bits)
+        th_cell0_in = m.Input('th_cell0_in', c_bits)
+        th_cell1_in = m.Input('th_cell1_in', c_bits)
+        th_node_in = m.Input('th_node_in', node_bits)
+
+        th_done_out = m.OutputReg('th_done_out')
+        th_v_out = m.OutputReg('th_v_out')
+        th_out = m.OutputReg('th_out', t_bits)
+        th_cell0_out = m.OutputReg('th_cell0_out', c_bits)
+        th_cell1_out = m.OutputReg('th_cell1_out', c_bits)
+        th_node_out = m.OutputReg('th_node_out', node_bits)
+
+        th_ch_in = m.Input('th_ch_in', t_bits)
+        flag_ch_in = m.Input('flag_ch_in')
+
+        th_ch_out = m.Input('th_ch_out', t_bits)
+        flag_ch_out = m.OutputReg('flag_ch_out')
+
+        # data needed to exec
+        neighbor = m.Output('neighbor', node_bits)
+
+        m_out0 = m.Wire('m_out0', node_bits)
+        m.EmbeddedCode('')
+        neighbor.assign(Mux(th_node_out[th_node_out.width], m_out0, 0))
+
+        # passing pipeline data
+        m.Always(Posedge(clk))(
+            th_done_out(th_done_in),
+            th_v_out(th_v_in),
+            th_out(th_in),
+            th_cell0_out(th_cell0_in),
+            th_cell1_out(th_cell1_in),
+            th_ch_out(th_ch_in),
+            flag_ch_out(flag_ch_in),
+            th_node_out(th_node_in)
+        )
+
+        con = [
+            ('clk', clk),
+            ('rd', 1),
+            ('rd_addr0', th_node_in[0:c_bits]),
+            ('out0', m_out0),
+            ('wr', 0),
+            ('wr_addr', 0),
+            ('wr_data', 0)
+        ]
+        aux = self.create_memory_2r_1w(node_bits, m_depth)
+        m.Instance(aux, 'm_' + aux.name, par, con)
+
+        util.initialize_regs(m)
+        self.cache[name] = m
+        return m
+
     def create_cell0_exec_pipe(self) -> Module:
         sa_graph = self.sa_graph
         n_cells = self.sa_graph.n_cells
@@ -422,16 +501,16 @@ class SAComponents:
         th_cell0_in = m.Input('th_cell0_in', c_bits)
         th_cell1_in = m.Input('th_cell1_in', c_bits)
 
-        cn0_th_done_out = m.Wire('cn0_th_done_out')
-        cn0_th_v_out = m.Wire('cn0_th_v_out')
-        cn0_th_out = m.Wire('cn0_th_out', t_bits)
-        cn0_th_cell0_out = m.Wire('cn0_th_cell0_out', c_bits)
-        cn0_th_cell1_out = m.Wire('cn0_th_cell1_out', c_bits)
-        cn0_th_ch_in = m.Wire('cn0_th_ch_in', t_bits)
-        cn0_flag_ch_in = m.Wire('cn0_flag_ch_in')
-        cn0_th_ch_out = m.Wire('cn0_th_ch_out', t_bits)
-        cn0_flag_ch_out = m.Wire('cn0_flag_ch_out')
-        cn0_node = m.Wire('cn0_node', node_bits)
+        cn_th_done_out = m.Wire('cn_th_done_out')
+        cn_th_v_out = m.Wire('cn_th_v_out')
+        cn_th_out = m.Wire('cn_th_out', t_bits)
+        cn_th_cell0_out = m.Wire('cn_th_cell0_out', c_bits)
+        cn_th_cell1_out = m.Wire('cn_th_cell1_out', c_bits)
+        cn_th_ch_in = m.Wire('cn_th_ch_in', t_bits)
+        cn_flag_ch_in = m.Wire('cn_flag_ch_in')
+        cn_th_ch_out = m.Wire('cn_th_ch_out', t_bits)
+        cn_flag_ch_out = m.Wire('cn_flag_ch_out')
+        cn_node = m.Wire('cn_node', node_bits)
 
         con = [
             ('clk', clk),
@@ -440,19 +519,63 @@ class SAComponents:
             ('th_in', th_in),
             ('th_cell0_in', th_cell0_in),
             ('th_cell1_in', th_cell1_in),
-            ('th_done_out', cn0_th_done_out),
-            ('th_v_out', cn0_th_v_out),
-            ('th_out', cn0_th_out),
-            ('th_cell0_out', cn0_th_cell0_out),
-            ('th_cell1_out', cn0_th_cell1_out),
-            ('th_ch_in', cn0_th_ch_in),
-            ('flag_ch_in', cn0_flag_ch_in),
-            ('th_ch_out', cn0_th_ch_out),
-            ('flag_ch_out', cn0_flag_ch_out),
-            ('node', cn0_node)
+            ('th_done_out', cn_th_done_out),
+            ('th_v_out', cn_th_v_out),
+            ('th_out', cn_th_out),
+            ('th_cell0_out', cn_th_cell0_out),
+            ('th_cell1_out', cn_th_cell1_out),
+            ('th_ch_in', cn_th_ch_in),
+            ('flag_ch_in', cn_flag_ch_in),
+            ('th_ch_out', cn_th_ch_out),
+            ('flag_ch_out', cn_flag_ch_out),
+            ('node', cn_node)
         ]
         aux = self.create_cell_node_pipe()
         m.Instance(aux, 'cn0_'+aux.name, par, con)
+
+        n_th_done_out = m.Wire('n_th_done_out', n_neighbors)
+        n_th_v_out = m.Wire('n_th_v_out', n_neighbors)
+        n_th_out = m.Wire('n_th_out', t_bits, n_neighbors)
+        n_th_cell0_out = m.Wire('n_th_cell0_out', c_bits, n_neighbors)
+        n_th_cell1_out = m.Wire('n_th_cell1_out', c_bits, n_neighbors)
+        n_th_node_out = m.Wire('n_th_node_out', node_bits, n_neighbors)
+        n_th_ch_out = m.Wire('n_th_ch_out', t_bits, n_neighbors)
+        n_flag_ch_out = m.Wire('n_flag_ch_out', n_neighbors)
+
+        n_neighbor = m.Wire('n_neighbor', node_bits, n_neighbors)
+
+        for i in range(n_neighbors):
+            con = [('clk', clk)]
+            if i == 0:
+                con.append(('th_done_in', cn_th_done_out))
+                con.append(('th_v_in', cn_th_v_out))
+                con.append(('th_in', cn_th_out))
+                con.append(('th_cell0_in', cn_th_cell0_out))
+                con.append(('th_cell1_in', cn_th_cell1_out))
+                con.append(('th_node_in', cn_node))
+                con.append(('th_ch_in', cn_th_ch_out))
+                con.append(('flag_ch_in', cn_flag_ch_out))
+            else:
+                con.append(('th_done_in', n_th_done_out[i-1]))
+                con.append(('th_v_in', n_th_v_out[i-1]))
+                con.append(('th_in', n_th_out[i-1]))
+                con.append(('th_cell0_in', n_th_cell0_out[i-1]))
+                con.append(('th_cell1_in', n_th_cell1_out[i-1]))
+                con.append(('th_node_in', n_th_node_out[i-1]))
+                con.append(('th_ch_in', n_th_ch_out[i-1]))
+                con.append(('flag_ch_in', n_flag_ch_out[i-1]))
+            con.append(('th_done_out', n_th_done_out[i]))
+            con.append(('th_v_out', n_th_v_out[i]))
+            con.append(('th_out', n_th_out[i]))
+            con.append(('th_cell0_out', n_th_cell0_out[i]))
+            con.append(('th_cell1_out', n_th_cell1_out[i]))
+            con.append(('th_node_out', n_th_node_out[i]))
+            con.append(('th_ch_out', n_th_ch_out[i]))
+            con.append(('flag_ch_out', n_flag_ch_out[i]))
+            con.append(('neighbor', n_neighbor[i]))
+
+            aux = self.create_neighbors_pipe()
+            m.Instance(aux, '%s_%d' % (aux.name, i), par, con)
 
         util.initialize_regs(m)
         return m
