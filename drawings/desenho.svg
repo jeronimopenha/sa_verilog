@@ -25,11 +25,11 @@
      inkscape:document-units="mm"
      showgrid="false"
      inkscape:zoom="2.0881594"
-     inkscape:cx="196.34517"
-     inkscape:cy="558.86539"
-     inkscape:window-width="1362"
-     inkscape:window-height="733"
-     inkscape:window-x="1280"
+     inkscape:cx="219.81081"
+     inkscape:cy="656.08019"
+     inkscape:window-width="1276"
+     inkscape:window-height="989"
+     inkscape:window-x="0"
      inkscape:window-y="16"
      inkscape:window-maximized="1"
      inkscape:current-layer="layer1" />
@@ -631,7 +631,7 @@
        inkscape:connection-end="#g1435-6" />
     <g
        id="g1766"
-       transform="translate(-9.8569825,-0.69861035)">
+       transform="translate(17.964224,1.7327791)">
       <rect
          style="fill:none;stroke:#000000;stroke-width:0.264583;stroke-opacity:1"
          id="rect1709"
@@ -663,7 +663,7 @@
     </g>
     <g
        id="g1766-5"
-       transform="translate(13.393734,-1.0827245)">
+       transform="translate(-6.0096796,1.9895482)">
       <rect
          style="fill:none;stroke:#000000;stroke-width:0.264583;stroke-opacity:1"
          id="rect1709-6"
@@ -728,58 +728,47 @@
     <text
        xml:space="preserve"
        style="font-size:3.175px;fill:none;stroke:#000000;stroke-width:0.264583;stroke-opacity:1"
-       x="18.791616"
-       y="147.86227"
+       x="22.518036"
+       y="156.47763"
        id="text1812"><tspan
          sodipodi:role="line"
          id="tspan1810"
          style="stroke-width:0.264583"
-         x="18.791616"
-         y="147.86227">1</tspan></text>
+         x="22.518036"
+         y="156.47763">1</tspan></text>
     <text
        xml:space="preserve"
        style="font-size:3.175px;fill:none;stroke:#000000;stroke-width:0.264583;stroke-opacity:1"
-       x="19.201279"
-       y="153.93445"
+       x="47.022484"
+       y="156.36584"
        id="text1816"><tspan
          sodipodi:role="line"
          id="tspan1814"
          style="stroke-width:0.264583"
-         x="19.201279"
-         y="153.93445">2</tspan></text>
+         x="47.022484"
+         y="156.36584">2</tspan></text>
     <text
        xml:space="preserve"
        style="font-size:3.175px;fill:none;stroke:#000000;stroke-width:0.264583;stroke-opacity:1"
-       x="42.337261"
-       y="159.65259"
-       id="text1816-6"><tspan
+       x="46.806679"
+       y="150.78287"
+       id="text1816-8"><tspan
          sodipodi:role="line"
-         id="tspan1814-5"
+         id="tspan1814-8"
          style="stroke-width:0.264583"
-         x="42.337261"
-         y="159.65259">2</tspan></text>
+         x="46.806679"
+         y="150.78287">2</tspan></text>
     <text
        xml:space="preserve"
        style="font-size:3.175px;fill:none;stroke:#000000;stroke-width:0.264583;stroke-opacity:1"
-       x="18.36413"
-       y="164.96431"
+       x="46.185337"
+       y="167.39571"
        id="text1820"><tspan
          sodipodi:role="line"
          id="tspan1818"
          style="stroke-width:0.264583"
-         x="18.36413"
-         y="164.96431">4</tspan></text>
-    <text
-       xml:space="preserve"
-       style="font-size:3.175px;fill:none;stroke:#000000;stroke-width:0.264583;stroke-opacity:1"
-       x="41.806873"
-       y="153.6313"
-       id="text1820-8"><tspan
-         sodipodi:role="line"
-         id="tspan1818-1"
-         style="stroke-width:0.264583"
-         x="41.806873"
-         y="153.6313">4</tspan></text>
+         x="46.185337"
+         y="167.39571">4</tspan></text>
     <g
        id="g1766-5-8"
        transform="translate(52.504593,4.112776)">
@@ -911,51 +900,40 @@
     <text
        xml:space="preserve"
        style="font-size:3.175px;fill:none;stroke:#000000;stroke-width:0.264583;stroke-opacity:1"
-       x="18.437309"
-       y="158.99281"
+       x="46.258514"
+       y="161.42421"
        id="text1824-4"><tspan
          sodipodi:role="line"
          id="tspan1822-3"
          style="stroke-width:0.264583"
-         x="18.437309"
-         y="158.99281">3</tspan></text>
-    <text
-       xml:space="preserve"
-       style="font-size:3.175px;fill:none;stroke:#000000;stroke-width:0.264583;stroke-opacity:1"
-       x="42.252499"
-       y="164.19777"
-       id="text1824-4-6"><tspan
-         sodipodi:role="line"
-         id="tspan1822-3-3"
-         style="stroke-width:0.264583"
-         x="42.252499"
-         y="164.19777">3</tspan></text>
+         x="46.258514"
+         y="161.42421">3</tspan></text>
     <ellipse
        style="fill:#000000;fill-opacity:1;stroke:#000000;stroke-width:0.264583;stroke-opacity:1"
        id="path1878"
-       cx="10.455534"
-       cy="147.15329"
+       cx="38.276741"
+       cy="149.58469"
        rx="0.99755931"
        ry="0.97712922" />
     <ellipse
        style="fill:#000000;fill-opacity:1;stroke:#000000;stroke-width:0.264583;stroke-opacity:1"
        id="path1878-4"
-       cx="34.748207"
-       cy="152.4281"
+       cx="14.258588"
+       cy="155.62079"
        rx="0.99755931"
        ry="0.97712922" />
     <ellipse
        style="fill:#000000;fill-opacity:1;stroke:#000000;stroke-width:0.264583;stroke-opacity:1"
        id="path1878-5"
-       cx="34.42041"
-       cy="158.20204"
+       cx="37.724018"
+       cy="160.96394"
        rx="0.99755931"
        ry="0.97712922" />
     <ellipse
        style="fill:#000000;fill-opacity:1;stroke:#000000;stroke-width:0.264583;stroke-opacity:1"
        id="path1878-2"
-       cx="34.36552"
-       cy="163.85753"
+       cx="37.616604"
+       cy="166.88718"
        rx="0.99755931"
        ry="0.97712922" />
     <text
@@ -1295,5 +1273,84 @@
          style="stroke-width:0.264583"
          x="34.958523"
          y="86.882629">b</tspan></text>
+    <rect
+       style="fill:none;fill-opacity:1;stroke:#000000;stroke-width:0.264583;stroke-opacity:1"
+       id="rect3987"
+       width="180.91792"
+       height="82.371094"
+       x="12.967276"
+       y="192.1541" />
+    <path
+       style="fill:none;fill-rule:evenodd;stroke:#000000;stroke-width:0.264583px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+       d="M 1.9477719,201.94759 H 13.071215"
+       id="path3989"
+       inkscape:connector-type="polyline"
+       inkscape:connector-curvature="0" />
+    <rect
+       style="fill:none;fill-opacity:1;stroke:#000000;stroke-width:0.264583;stroke-opacity:1"
+       id="rect3993"
+       width="18.321707"
+       height="55.173683"
+       x="27.147608"
+       y="200.3912" />
+    <rect
+       style="fill:none;fill-opacity:1;stroke:#000000;stroke-width:0.264583;stroke-opacity:1"
+       id="rect3995"
+       width="14.36708"
+       height="55.789173"
+       x="64.805107"
+       y="200.38005" />
+    <rect
+       style="fill:none;fill-opacity:1;stroke:#000000;stroke-width:0.264583;stroke-opacity:1"
+       id="rect3997"
+       width="17.352045"
+       height="57.626019"
+       x="98.973106"
+       y="200.03041" />
+    <path
+       style="fill:none;fill-rule:evenodd;stroke:#000000;stroke-width:0.264583px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+       d="m 13.328,201.66955 14.636982,3.99236"
+       id="path3999"
+       inkscape:connector-type="polyline"
+       inkscape:connector-curvature="0" />
+    <path
+       style="fill:none;fill-rule:evenodd;stroke:#000000;stroke-width:0.264583px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+       d="m 45.447661,206.01784 19.721481,1.398"
+       id="path4001"
+       inkscape:connector-type="polyline"
+       inkscape:connector-curvature="0" />
+    <path
+       style="fill:none;fill-rule:evenodd;stroke:#000000;stroke-width:0.264583px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+       d="m 78.932076,206.47373 20.623305,1.70251"
+       id="path4003"
+       inkscape:connector-type="polyline"
+       inkscape:connector-curvature="0" />
+    <path
+       style="fill:none;fill-rule:evenodd;stroke:#000000;stroke-width:0.264583px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+       d="m 116.71461,209.05269 13.88262,0.92197"
+       id="path4005"
+       inkscape:connector-type="polyline"
+       inkscape:connector-curvature="0" />
+    <rect
+       style="fill:none;fill-opacity:1;stroke:#000000;stroke-width:0.264583;stroke-opacity:1"
+       id="rect4007"
+       width="12.761007"
+       height="18.33746"
+       x="30.415743"
+       y="215.83105" />
+    <rect
+       style="fill:none;fill-opacity:1;stroke:#000000;stroke-width:0.264583;stroke-opacity:1"
+       id="rect4009"
+       width="9.0214329"
+       height="12.796891"
+       x="68.51136"
+       y="219.05473" />
+    <rect
+       style="fill:none;fill-opacity:1;stroke:#000000;stroke-width:0.264583;stroke-opacity:1"
+       id="rect4011"
+       width="10.743694"
+       height="15.632838"
+       x="102.25356"
+       y="218.43999" />
   </g>
 </svg>
