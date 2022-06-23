@@ -1,19 +1,15 @@
+import os
 from math import ceil, log2, sqrt
 from veriloggen import *
-from src.utils import util
+from src.utils.util import initialize_regs, SaGraph
 
 
 class SAComponents:
     _instance = None
 
-    # def __new__(cls):
-    #    if cls._instance is None:
-    #        cls._instance = super().__new__(cls)
-    #    return cls._instance
-
     def __init__(
         self,
-        sa_graph: util.SaGraph,
+        sa_graph: SaGraph,
         n_threads: int = 4,
         n_neighbors: int = 4,
         align_bits: int = 8,
@@ -77,7 +73,6 @@ class SAComponents:
         if name in self.cache.keys():
             return self.cache[name]
 
-        par = []
         c_bits = ceil(log2(n_cells))
         m_width = c_bits * 2
         t_bits = ceil(log2(n_threads))
@@ -164,6 +159,7 @@ class SAComponents:
             )
         )
 
+        par = []
         con = [
             ("clk", clk),
             ("rd", m_rd),
@@ -176,7 +172,7 @@ class SAComponents:
         aux = self.create_memory_2r_1w(m_width, t_bits)
         m.Instance(aux, aux.name, par, con)
 
-        util.initialize_regs(m)
+        initialize_regs(m)
 
         self.cache[name] = m
         return m
@@ -192,7 +188,6 @@ class SAComponents:
         if name in self.cache.keys():
             return self.cache[name]
 
-        par = []
         c_bits = ceil(log2(n_cells))
         t_bits = ceil(log2(n_threads))
         t_bits = 1 if t_bits == 0 else t_bits
@@ -220,7 +215,7 @@ class SAComponents:
         th_ch_in = m.Input('th_ch_in', t_bits)
         flag_ch_in = m.Input('flag_ch_in')
 
-        th_ch_out = m.Input('th_ch_out', t_bits)
+        th_ch_out = m.OutputReg('th_ch_out', t_bits)
         flag_ch_out = m.OutputReg('flag_ch_out')
 
         # data needed to exec
@@ -331,11 +326,12 @@ class SAComponents:
             flag_ch_out(flag_ch_in),
         )
 
+        par = [('init_file', os.getcwd() + '/rom/c_n.rom')]
         con = [
             ('clk', clk),
-            ('rd', 1),
-            ('rd_addr0', th_cell0_in),
-            ('rd_addr1', th_cell1_in),
+            ('rd', Int(1, 1, 2)),
+            ('rd_addr0', Cat(th_in, th_cell0_in)),
+            ('rd_addr1', Cat(th_in, th_cell1_in)),
             ('out0', m0_out0),
             ('out1', m0_out1),
             ('wr', m0_wr),
@@ -346,11 +342,12 @@ class SAComponents:
         aux = self.create_memory_2r_1w(m_width, m_depth)
         m.Instance(aux, 'm0_' + aux.name, par, con)
 
+        par = [('init_file', os.getcwd() + '/rom/c_n.rom')]
         con = [
             ('clk', clk),
-            ('rd', 1),
-            ('rd_addr0', th_cell0_in),
-            ('rd_addr1', th_cell1_in),
+            ('rd', Int(1, 1, 2)),
+            ('rd_addr0', Cat(th_in, th_cell0_in)),
+            ('rd_addr1', Cat(th_in, th_cell1_in)),
             ('out0', m1_out0),
             ('out1', m1_out1),
             ('wr', m1_wr),
@@ -361,11 +358,12 @@ class SAComponents:
         aux = self.create_memory_2r_1w(m_width, m_depth)
         m.Instance(aux, 'm1_' + aux.name, par, con)
 
+        par = [('init_file', os.getcwd() + '/rom/p.rom')]
         con = [
             ('clk', clk),
-            ('rd', 1),
-            ('rd_addr0', th_cell0_in),
-            ('rd_addr1', th_cell1_in),
+            ('rd', Int(1, 1, 2)),
+            ('rd_addr0', Cat(th_in, th_cell0_in)),
+            ('rd_addr1', Cat(th_in, th_cell1_in)),
             ('out0', p_out0),
             ('out1', p_out1),
             ('wr', p_wr),
@@ -376,9 +374,10 @@ class SAComponents:
         aux = self.create_memory_2r_1w(1, m_depth)
         m.Instance(aux, 'p_' + aux.name, par, con)
 
+        par = []
         con = [
             ('clk', clk),
-            ('rd', 1),
+            ('rd', Int(1, 1, 2)),
             ('rd_addr0', th_ch_in),
             ('out0', ch_out),
             ('wr', ch_wr),
@@ -388,7 +387,7 @@ class SAComponents:
         aux = self.create_memory_2r_1w(ch_wr_data.width, t_bits)
         m.Instance(aux, 'ch_' + aux.name, par, con)
 
-        util.initialize_regs(m)
+        initialize_regs(m)
         self.cache[name] = m
         return m
 
@@ -403,7 +402,6 @@ class SAComponents:
         if name in self.cache.keys():
             return self.cache[name]
 
-        par = []
         c_bits = ceil(log2(n_cells))
         t_bits = ceil(log2(n_threads))
         t_bits = 1 if t_bits == 0 else t_bits
@@ -412,6 +410,8 @@ class SAComponents:
         m_width = node_bits
 
         m = Module(name)
+
+        init_file = m.Parameter('init_file', 'mem_file.txt')
 
         clk = m.Input('clk')
 
@@ -435,7 +435,7 @@ class SAComponents:
         th_ch_in = m.Input('th_ch_in', t_bits)
         flag_ch_in = m.Input('flag_ch_in')
 
-        th_ch_out = m.Input('th_ch_out', t_bits)
+        th_ch_out = m.OutputReg('th_ch_out', t_bits)
         flag_ch_out = m.OutputReg('flag_ch_out')
 
         # data needed to exec
@@ -458,19 +458,20 @@ class SAComponents:
             th_node1_out(th_node1_in)
         )
 
+        par = [('init_file', init_file)]
         con = [
             ('clk', clk),
-            ('rd', 1),
+            ('rd', Int(1, 1, 2)),
             ('rd_addr0', th_node0_in[0:c_bits]),
             ('out0', m_out0),
-            ('wr', 0),
-            ('wr_addr', 0),
-            ('wr_data', 0)
+            ('wr', Int(0, 1, 2)),
+            ('wr_addr', Int(0, c_bits, 2)),
+            ('wr_data', Int(0, node_bits, 2))
         ]
         aux = self.create_memory_2r_1w(node_bits, m_depth)
         m.Instance(aux, 'm_' + aux.name, par, con)
 
-        util.initialize_regs(m)
+        initialize_regs(m)
         self.cache[name] = m
         return m
 
@@ -485,7 +486,6 @@ class SAComponents:
         if name in self.cache.keys():
             return self.cache[name]
 
-        par = []
         c_bits = ceil(log2(n_cells))
         t_bits = ceil(log2(n_threads))
         t_bits = 1 if t_bits == 0 else t_bits
@@ -639,10 +639,11 @@ class SAComponents:
             th_cell1_out(th_cell1_in),
         )
 
+        par = [('init_file', os.getcwd() + '/rom/n_c.rom')]
         con = [
             ('clk', clk),
-            ('rd', 1),
-            ('rd_addr0', th_neighbor_in[:th_neighbor_in.width-1]),
+            ('rd', Int(1, 1, 2)),
+            ('rd_addr0', Cat(th_in, th_neighbor_in[:th_neighbor_in.width-1])),
             ('out0', m0_out0),
             ('wr', m0_wr),
             ('wr_addr', m0_wr_addr),
@@ -652,10 +653,11 @@ class SAComponents:
         aux = self.create_memory_2r_1w(c_bits, m_depth)
         m.Instance(aux, 'm0_' + aux.name, par, con)
 
+        par = [('init_file', os.getcwd() + '/rom/n_c.rom')]
         con = [
             ('clk', clk),
-            ('rd', 1),
-            ('rd_addr0', th_neighbor_in[:th_neighbor_in.width-1]),
+            ('rd', Int(1, 1, 2)),
+            ('rd_addr0', Cat(th_in, th_neighbor_in[:th_neighbor_in.width-1])),
             ('out0', m1_out0),
             ('wr', m1_wr),
             ('wr_addr', m1_wr_addr),
@@ -665,10 +667,11 @@ class SAComponents:
         aux = self.create_memory_2r_1w(c_bits, m_depth)
         m.Instance(aux, 'm1_' + aux.name, par, con)
 
+        par = [('init_file', os.getcwd() + '/rom/p.rom')]
         con = [
             ('clk', clk),
-            ('rd', 1),
-            ('rd_addr0', th_neighbor_in[:th_neighbor_in.width-1]),
+            ('rd', Int(1, 1, 2)),
+            ('rd_addr0', Cat(th_in, th_neighbor_in[:th_neighbor_in.width-1])),
             ('out0', p_out0),
             ('wr', p_wr),
             ('wr_addr', p_wr_addr),
@@ -678,9 +681,10 @@ class SAComponents:
         aux = self.create_memory_2r_1w(1, m_depth)
         m.Instance(aux, 'p_' + aux.name, par, con)
 
+        par = []
         con = [
             ('clk', clk),
-            ('rd', 1),
+            ('rd', Int(1, 1, 2)),
             ('rd_addr0', th_ch_in),
             ('out0', ch_out),
             ('wr', ch_wr),
@@ -690,7 +694,7 @@ class SAComponents:
         aux = self.create_memory_2r_1w(ch_wr_data.width, t_bits)
         m.Instance(aux, 'ch_' + aux.name, par, con)
 
-        util.initialize_regs(m)
+        initialize_regs(m)
         self.cache[name] = m
         return m
 
@@ -740,11 +744,7 @@ class SAComponents:
         opa1.assign(Mux(neighbor_cell == th_cell1_in,
                     th_cell0_in, neighbor_cell))
 
-        # opa0.assign()
-        # opa1.assign()
-        # opb0.assign()
-        # opb1.assign()
-        util.initialize_regs(m)
+        initialize_regs(m)
         self.cache[name] = m
         return m
 
@@ -782,7 +782,7 @@ class SAComponents:
         d0 = m.OutputReg('d0', d_width)
         d1 = m.OutputReg('d1', d_width)
 
-        mem = m.Wire('mem', d0.width, n_cells)
+        mem = m.Wire('mem', d0.width, Power(n_cells, 2))
 
         m.Always(Posedge(clk))(
             If(v_in)(
@@ -804,7 +804,7 @@ class SAComponents:
                         mem[c].assign(Int(d, d_width, 10))
                         c = c + 1
 
-        util.initialize_regs(m)
+        initialize_regs(m)
         self.cache[name] = m
         return m
 
@@ -839,7 +839,7 @@ class SAComponents:
             s(a+b)
         )
 
-        util.initialize_regs(m)
+        initialize_regs(m)
         self.cache[name] = m
         return m
 
@@ -876,7 +876,7 @@ class SAComponents:
             # )
         )
 
-        util.initialize_regs(m)
+        initialize_regs(m)
         self.cache[name] = m
         return m
 
@@ -893,14 +893,11 @@ class SAComponents:
         if name in self.cache.keys():
             return self.cache[name]
 
-        par = []
-        con = []
         c_bits = ceil(log2(n_cells))
         t_bits = ceil(log2(n_threads))
         t_bits = 1 if t_bits == 0 else t_bits
         node_bits = c_bits + 1
         lines = columns = int(sqrt(n_cells))
-        # shortest Manhattan distance
         d_width = ceil(log2(lines+columns))
         d_width += ceil(log2(n_neighbors))
 
@@ -937,6 +934,7 @@ class SAComponents:
         cn_node0 = m.Wire('cn_node0', node_bits)
         cn_node1 = m.Wire('cn_node1', node_bits)
 
+        par = []
         con = []
         con.append(('clk', clk))
         con.append(('th_done_in', th_done_in))
@@ -992,11 +990,12 @@ class SAComponents:
 
         m.EmbeddedCode('')
 
-        s_sb = m.Wire('s_sb', n_neighbors)
-        s_sa = m.Wire('s_sa', n_neighbors)
+        s_sb = m.Wire('s_sb', d_width, n_neighbors)
+        s_sa = m.Wire('s_sa', d_width, n_neighbors)
 
         for i in range(n_neighbors):
             m.EmbeddedCode('// Pipe neighbor %d' % i)
+            par = [('init_file', os.getcwd() + '/rom/n%d.rom' % i)]
             con = []
             con.append(('clk', clk))
             if i == 0:
@@ -1033,6 +1032,7 @@ class SAComponents:
             aux = self.create_neighbors_pipe()
             m.Instance(aux, '%s_%d' % (aux.name, i), par, con)
 
+            par = []
             con = []
             con.append(('clk', clk))
             con.append(('th_done_in', n_th_done_out[i]))
@@ -1052,6 +1052,7 @@ class SAComponents:
             aux = self.create_node_cell_pipe()
             m.Instance(aux, '%s_%d' % (aux.name, i), par, con)
 
+            par = []
             con = []
             con.append(('th_cell0_in', nc_th_cell0_out[i]))
             con.append(('th_cell1_in', nc_th_cell1_out[i]))
@@ -1066,6 +1067,7 @@ class SAComponents:
             aux = self.create_cell_selector()
             m.Instance(aux, '%s_%d' % (aux.name, i), par, con)
 
+            par = []
             con = []
             con.append(('clk', clk))
             con.append(('v_in', cs_v[i]))
@@ -1081,10 +1083,11 @@ class SAComponents:
 
             aux = self.create_adder()
             # SumB
+            par = []
             con = []
             con.append(('clk', clk))
             if i == 0:
-                con.append(('a', 0))
+                con.append(('a', Int(0, d_width, 2)))
             else:
                 con.append(('a', s_sb[i-1]))
             con.append(('b', dm_d0[i]))
@@ -1093,10 +1096,11 @@ class SAComponents:
             m.Instance(aux, '%sb_%d' % (aux.name, i), par, con)
 
             # SumA
+            par = []
             con = []
             con.append(('clk', clk))
             if i == 0:
-                con.append(('a', 0))
+                con.append(('a', Int(0, d_width, 2)))
             else:
                 con.append(('a', s_sa[i-1]))
             con.append(('b', dm_d1[i]))
@@ -1111,8 +1115,17 @@ class SAComponents:
         reg_pipe_out = m.Wire('reg_pipe_out', reg_pipe_bits)
 
         m.EmbeddedCode('')
-        reg_pipe_in.assign(Cat(n_th_done_out, n_th_v_out, n_th_out,
-                           n_th_cell0_out, n_th_cell1_out, n_th_ch_out, n_flag_ch_out))
+        reg_pipe_in.assign(
+            Cat(
+                n_th_done_out[n_neighbors - 1],
+                n_th_v_out[n_neighbors - 1],
+                n_th_out[n_neighbors - 1],
+                n_th_cell0_out[n_neighbors - 1],
+                n_th_cell1_out[n_neighbors - 1],
+                n_th_ch_out[n_neighbors - 1],
+                n_flag_ch_out[n_neighbors - 1]
+            )
+        )
 
         idx = 0
         flag_ch_out.assign(reg_pipe_out[idx])
@@ -1143,18 +1156,8 @@ class SAComponents:
 
         aux = self.create_register_pipeline()
         m.Instance(aux, aux.name, par, con)
-        '''
-        num_stages = m.Parameter('num_stages', 1)
-        data_width = m.Parameter('data_width', 16)
 
-        clk = m.Input('clk')
-        # en = m.Input('en')
-        rst = m.Input('rst')
-        data_in = m.Input('in', data_width)
-        data_out = m.Output('out', data_width)
-        '''
-
-        util.initialize_regs(m)
+        initialize_regs(m)
         return m
 
     def create_sa(self) -> Module:
@@ -1169,8 +1172,6 @@ class SAComponents:
         if name in self.cache.keys():
             return self.cache[name]
 
-        par = []
-        con = []
         c_bits = ceil(log2(n_cells))
         t_bits = ceil(log2(n_threads))
         t_bits = 1 if t_bits == 0 else t_bits
@@ -1183,17 +1184,7 @@ class SAComponents:
 
         clk = m.Input('clk')
         rst = m.Input('rst')
-
-        # TODO
-        start = m.Reg('start')
-
-        m.Always(Posedge(clk))(
-            If(rst)(
-                start(0),
-            ).Else(
-                start(1),
-            )
-        )
+        start = m.Input('start')
 
         # FIXME - Change this component to run config times
         th_done = m.Wire('th_done')
@@ -1225,6 +1216,7 @@ class SAComponents:
         ce0_sb = m.Wire('ce0_sb', d_width)
         ce0_sa = m.Wire('ce0_sa', d_width)
 
+        par = []
         con = [
             ('clk', clk),
             ('th_done_in', th_done),
@@ -1244,5 +1236,5 @@ class SAComponents:
         ]
         aux = self.create_cell0_exec_pipe()
         m.Instance(aux, aux.name, par, con)
-        util.initialize_regs(m)
+        initialize_regs(m)
         return m

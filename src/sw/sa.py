@@ -1,12 +1,12 @@
 import networkx as nx
 from math import ceil, sqrt, log2, exp
-from src.utils import util
+from src.utils.util import SaGraph
 import random
 
 
-def sa(dot: str, n_threads: int, t_min: int):
+def sa(sa_graph: SaGraph, t_min: int):
+    n_threads = sa_graph.n_cells
     random.seed(0)
-    sa_graph = util.SaGraph(dot)
     c_n = []
     n_c = []
     for i in range(n_threads):
@@ -18,11 +18,15 @@ def sa(dot: str, n_threads: int, t_min: int):
     # execução do SA
     for thread in range(n_threads):
         actual_cost = sa_graph.get_total_cost(c_n[thread], n_c[thread])
-        print(actual_cost)
+        #print(actual_cost)
+        i == 0
         while t >= t_min:
-        #for i in range(t_min):
+            # for i in range(t_min):
+            if i == 1: return
             for cell1 in range(sa_graph.n_cells):
+                print()
                 for cell2 in range(sa_graph.n_cells):
+                    i = 1
                     #cell1 = random.randint(0,sa_graph.n_cells-1)
                     #cell2 = random.randint(0,sa_graph.n_cells-1)
                     if cell1 == cell2:
@@ -34,6 +38,8 @@ def sa(dot: str, n_threads: int, t_min: int):
                         continue
                     cost_cell1_b, cost_cell1_a, cost_cell2_b, cost_cell2_a = sa_graph.get_cost(
                         n_c[thread], node1, node2, cell1, cell2)
+
+                    print('%d %d' % (cost_cell1_b, cost_cell1_a))
                     next_cost -= cost_cell1_b
                     next_cost -= cost_cell2_b
                     next_cost += cost_cell1_a
@@ -50,16 +56,17 @@ def sa(dot: str, n_threads: int, t_min: int):
 
                     rnd = random.random()
                     '''
-                    if next_cost < actual_cost:# or rnd <= valor:
+                    if next_cost < actual_cost:  # or rnd <= valor:
                         if node1 is not None:
                             n_c[thread][node1] = cell2
 
                         if node2 is not None:
                             n_c[thread][node2] = cell1
                         c_n[thread][cell1], c_n[thread][cell2] = c_n[thread][cell2], c_n[thread][cell1]
-                        
-                        actual_cost = next_cost #= sa_graph.get_total_cost(c_n[thread], n_c[thread])
-                    
-                print(actual_cost)
+
+                        # = sa_graph.get_total_cost(c_n[thread], n_c[thread])
+                        actual_cost = next_cost
+
+                #print(actual_cost)
             t *= 0.999
-    print(sa_graph.get_total_cost(c_n[thread], n_c[thread]))
+    #print(sa_graph.get_total_cost(c_n[thread], n_c[thread]))

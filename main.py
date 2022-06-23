@@ -3,12 +3,11 @@ import sys
 if os.getcwd() not in sys.path:
     sys.path.append(os.getcwd())
 from src.sw.sa import sa
-#from src.hw import testbenches
+from src.hw.testbenches import create_sa_test_bench
 from src.hw.sa_components import SAComponents
-from src.utils import util
+from src.utils.util import SaGraph
 
-#sa('dot/simple.dot',1,0.0001)
-#sa('dot/simple.dot',1,0.01)
-sa_graph = util.SaGraph('dot/t.dot')
-sa_comp = SAComponents(sa_graph)
-sa_comp.create_sa().to_verilog('sa.v')
+sa_graph = SaGraph('dot/t.dot')
+sa_comp = SAComponents(sa_graph=sa_graph, n_threads=1, n_neighbors=2)
+sa(sa_graph, 0.01)
+create_sa_test_bench(sa_comp)

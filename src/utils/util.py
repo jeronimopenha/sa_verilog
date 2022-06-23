@@ -4,6 +4,8 @@ import subprocess
 import networkx as nx
 import random
 
+#from src.hw.sa_components import SAComponents
+
 
 class SaGraph:
     def __init__(self, dot: str):
@@ -109,13 +111,6 @@ class SaGraph:
         return abs(cell1_y - cell2_y) + abs(cell1_x - cell2_x)
 
 
-def print_matrix_to_str(c_n) -> str:
-    s = []
-    for i in range(len(c_n)):
-        pass
-    return " "
-
-
 def to_bytes_string_list(conf_string):
     list_ret = []
     for i in range(len(conf_string), 0, -8):
@@ -168,3 +163,85 @@ def bits(n):
         return 1
     else:
         return int(ceil(log2(n)))
+
+def create_rom_files(sa_comp):
+    sa_graph = sa_comp.sa_graph
+    n_cells = sa_comp.sa_graph.n_cells
+    n_neighbors = sa_comp.n_neighbors
+    align_bits = sa_comp.align_bits
+    n_threads = sa_comp.n_threads
+    
+    c_bits = ceil(log2(n_cells))
+    t_bits = ceil(log2(n_threads))
+    t_bits = 1 if t_bits == 0 else t_bits
+    node_bits = c_bits + 1
+    lines = columns = int(sqrt(n_cells))
+    d_width = ceil(log2(lines+columns))
+    d_width += ceil(log2(n_neighbors))
+
+    c_n = []
+    n_c = []
+    for i in range(n_threads):
+        c_n_i, n_c_i = sa_graph.get_initial_grid()
+        c_n.append(c_n_i)
+        n_c.append(n_c_i)
+
+    cn_str_f = '{:0%dX}' % ceil(node_bits/16)
+    nc_str_f = '{:0%dX}' % ceil(c_bits/16)
+    p_str_f = '{:0%dX}' % 1
+    n_str_f = '{:0%dX}' % ceil(node_bits/16)
+
+    cn_w = [cn_str_f.format(0) for i in range(n_cells)]
+    nc_w = [nc_str_f.format(0) for i in range(n_cells)]
+    p_w = [p_str_f.format(0) for i in range(n_cells)]
+    n_w = []
+    for c in range(n_cells):
+        n_w.append([n_str_f.format(0) for i in range(n_neighbors)])
+    for k in sa_graph.neighbors.keys():
+        idx = 0
+        for n in sa_graph.neighbors[k]:
+            n_w[k][idx] = n_str_f.format((1 << node_bits-1) | n)
+            idx += 1
+
+    for cn in c_n:
+        for cni in range(len(cn)):
+            cn_w[cni] = cn_str_f.format((1 << node_bits-1) | cn[cni])
+
+    for nc in n_c:
+        for nci in range(len(nc)):
+            nc_w[nci] = nc_str_f.format(nc[nci])
+
+    with open(os.getcwd() + '/rom/n_c.rom', 'w') as f:
+        for d in nc_w:
+            f.write(d)
+            f.write('\n')
+        if n_threads == 1:
+            for d in range(n_cells):
+                f.write(nc_str_f.format(0))
+                f.write('\n')
+        f.close()
+    with open(os.getcwd() + '/rom/c_n.rom', 'w') as f:
+        for d in cn_w:
+            f.write(d)
+            f.write('\n')
+        if n_threads == 1:
+            for d in range(n_cells):
+                f.write(cn_str_f.format(0))
+                f.write('\n')
+        f.close()
+
+    with open(os.getcwd() + '/rom/p.rom', 'w') as f:
+        for d in p_w:
+            f.write(d)
+            f.write('\n')
+        if n_threads == 1:
+            for d in range(n_cells):
+                f.write(p_str_f.format(0))
+                f.write('\n')
+        f.close()
+    for i in range(n_neighbors):
+        with open(os.getcwd() + '/rom/n%d.rom' % i, 'w') as f:
+            for c in range(n_cells):
+                f.write(n_w[c][i])
+                f.write('\n')
+            f.close()
