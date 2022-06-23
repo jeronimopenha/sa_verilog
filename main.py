@@ -9,7 +9,6 @@ from src.utils import util
 
 #sa('dot/simple.dot',1,0.0001)
 #sa('dot/simple.dot',1,0.01)
-#testbenches.create_threads_test_bench('dot/simple.dot')
 sa_graph = util.SaGraph('dot/t.dot')
 sa_comp = SAComponents(sa_graph)
 sa_comp.create_sa().to_verilog('sa.v')

@@ -694,7 +694,6 @@ class SAComponents:
         self.cache[name] = m
         return m
 
-    # TODO need to be developed
     def create_cell_selector(self) -> Module:
         sa_graph = self.sa_graph
         n_cells = self.sa_graph.n_cells
@@ -738,8 +737,8 @@ class SAComponents:
         opb1.assign(neighbor_cell)
 
         opa0.assign(th_cell1_in)
-        opa1.assign(Mux(neighbor_cell == th_cell1_in, th_cell0_in, neighbor_cell))
-        
+        opa1.assign(Mux(neighbor_cell == th_cell1_in,
+                    th_cell0_in, neighbor_cell))
 
         # opa0.assign()
         # opa1.assign()
@@ -749,8 +748,8 @@ class SAComponents:
         self.cache[name] = m
         return m
 
-    # TODO need to be developed
-    def create_distance_rom(self):
+    def create_distance_rom(self) -> Module:
+        # manhattan
         sa_graph = self.sa_graph
         n_cells = self.sa_graph.n_cells
         n_neighbors = self.n_neighbors
@@ -775,38 +774,113 @@ class SAComponents:
         m = Module(name)
 
         clk = m.Input('clk')
+        v_in = m.Input('v_in')
         opb0 = m.Input('opb0', c_bits)
         opb1 = m.Input('opb1', c_bits)
         opa0 = m.Input('opa0', c_bits)
         opa1 = m.Input('opa1', c_bits)
-        d0 = m.Output('d0', d_width)
-        d1 = m.Output('d1', d_width)
+        d0 = m.OutputReg('d0', d_width)
+        d1 = m.OutputReg('d1', d_width)
 
-        '''
-        mem = m.Wire('mem', d0.width, lines * columns)
+        mem = m.Wire('mem', d0.width, n_cells)
 
         m.Always(Posedge(clk))(
-            If(re)(
-                d0(mem[cell0]),
-                d1(mem[cell1]),
+            If(v_in)(
+                d0(mem[Cat(opb1, opb0)]),
+                d1(mem[Cat(opa1, opa0)]),
+            ).Else(
+                d0(0),
+                d1(0),
             )
         )
 
-        line_counter = 0
-        for l in distance_matrix:
-            s = "{"
-            for c in l:
-                s = s + str(c) + ","
-            s = s[:-1]
-            s = s + "}"
-            mem[line_counter].assign(EmbeddedCode(s))
-            line_counter = line_counter + 1
-        '''
+        r = int(sqrt(int(n_cells)))
+        c = 0
+        for x1 in range(r):
+            for y1 in range(r):
+                for x2 in range(r):
+                    for y2 in range(r):
+                        d = abs(y1-y2) + abs(x1-x2)
+                        mem[c].assign(Int(d, d_width, 10))
+                        c = c + 1
+
         util.initialize_regs(m)
         self.cache[name] = m
         return m
 
-    # TODO need to be developed
+    def create_adder(self) -> Module:
+        sa_graph = self.sa_graph
+        n_cells = self.sa_graph.n_cells
+        n_neighbors = self.n_neighbors
+        align_bits = self.align_bits
+        n_threads = self.n_threads
+        lines = columns = int(sqrt(n_cells))
+
+        name = 'adder'
+        if name in self.cache.keys():
+            return self.cache[name]
+
+        par = []
+        c_bits = ceil(log2(n_cells))
+        t_bits = ceil(log2(n_threads))
+        t_bits = 1 if t_bits == 0 else t_bits
+        node_bits = c_bits + 1
+        d_width = ceil(log2(lines+columns))
+        d_width += ceil(log2(n_neighbors))
+
+        m = Module(name)
+
+        clk = m.Input('clk')
+        a = m.Input('a', d_width)
+        b = m.Input('b', d_width)
+        s = m.OutputReg('s', d_width)
+
+        m.Always(Posedge(clk))(
+            s(a+b)
+        )
+
+        util.initialize_regs(m)
+        self.cache[name] = m
+        return m
+
+    def create_register_pipeline(self):
+        name = 'reg_pipe'
+        if name in self.cache.keys():
+            return self.cache[name]
+
+        m = Module('reg_pipe')
+        num_stages = m.Parameter('num_stages', 1)
+        data_width = m.Parameter('data_width', 16)
+
+        clk = m.Input('clk')
+        # en = m.Input('en')
+        #rst = m.Input('rst')
+        data_in = m.Input('data_in', data_width)
+        data_out = m.Output('data_out', data_width)
+
+        m.EmbeddedCode('(* keep = "true" *)')
+        regs = m.Reg('regs', data_width, num_stages)
+        i = m.Integer('i')
+        m.EmbeddedCode('')
+        data_out.assign(regs[num_stages - 1])
+        m.Always(Posedge(clk))(
+            # If(rst)(
+            #    regs[0](0),
+            # ).Else(
+            # If(en)(
+            regs[0](data_in),
+            For(i(1), i < num_stages, i.inc())(
+                regs[i](regs[i - 1])
+            )
+            # )
+            # )
+        )
+
+        util.initialize_regs(m)
+        self.cache[name] = m
+        return m
+
+    # TODO need to be tested
     def create_cell0_exec_pipe(self) -> Module:
         sa_graph = self.sa_graph
         n_cells = self.sa_graph.n_cells
@@ -840,6 +914,17 @@ class SAComponents:
         th_cell0_in = m.Input('th_cell0_in', c_bits)
         th_cell1_in = m.Input('th_cell1_in', c_bits)
 
+        th_done_out = m.Output('th_done_out')
+        th_v_out = m.Output('th_v_out')
+        th_out = m.Output('th_out', t_bits)
+        th_cell0_out = m.Output('th_cell0_out', c_bits)
+        th_cell1_out = m.Output('th_cell1_out', c_bits)
+        th_ch_out = m.Output('th_ch_out', t_bits)
+        flag_ch_out = m.Output('flag_ch_out')
+        sb = m.Output('sb', d_width)
+        sa = m.Output('sa', d_width)
+
+        # --------
         cn_th_done_out = m.Wire('cn_th_done_out')
         cn_th_v_out = m.Wire('cn_th_v_out')
         cn_th_out = m.Wire('cn_th_out', t_bits)
@@ -894,15 +979,21 @@ class SAComponents:
 
         m.EmbeddedCode('')
 
-        cs_opa0 = m.Wire('cs_opa0', c_bits, n_neighbors)
-        cs_opa1 = m.Wire('cs_opa1', c_bits, n_neighbors)
         cs_opb0 = m.Wire('cs_opb0', c_bits, n_neighbors)
         cs_opb1 = m.Wire('cs_opb1', c_bits, n_neighbors)
+        cs_opa0 = m.Wire('cs_opa0', c_bits, n_neighbors)
+        cs_opa1 = m.Wire('cs_opa1', c_bits, n_neighbors)
+        cs_v = m.Wire('cs_v', n_neighbors)
 
         m.EmbeddedCode('')
 
         dm_d0 = m.Wire('dm_d0', d_width, n_neighbors)
         dm_d1 = m.Wire('dm_d1', d_width, n_neighbors)
+
+        m.EmbeddedCode('')
+
+        s_sb = m.Wire('s_sb', n_neighbors)
+        s_sa = m.Wire('s_sa', n_neighbors)
 
         for i in range(n_neighbors):
             m.EmbeddedCode('// Pipe neighbor %d' % i)
@@ -970,12 +1061,14 @@ class SAComponents:
             con.append(('opb1', cs_opb1[i]))
             con.append(('opa0', cs_opa0[i]))
             con.append(('opa1', cs_opa1[i]))
+            con.append(('v', cs_v[i]))
 
             aux = self.create_cell_selector()
             m.Instance(aux, '%s_%d' % (aux.name, i), par, con)
 
             con = []
             con.append(('clk', clk))
+            con.append(('v_in', cs_v[i]))
             con.append(('opb0', cs_opb0[i]))
             con.append(('opb1', cs_opb1[i]))
             con.append(('opa0', cs_opa0[i]))
@@ -985,6 +1078,81 @@ class SAComponents:
 
             aux = self.create_distance_rom()
             m.Instance(aux, '%s_%d' % (aux.name, i), par, con)
+
+            aux = self.create_adder()
+            # SumB
+            con = []
+            con.append(('clk', clk))
+            if i == 0:
+                con.append(('a', 0))
+            else:
+                con.append(('a', s_sb[i-1]))
+            con.append(('b', dm_d0[i]))
+            con.append(('s', s_sb[i]))
+
+            m.Instance(aux, '%sb_%d' % (aux.name, i), par, con)
+
+            # SumA
+            con = []
+            con.append(('clk', clk))
+            if i == 0:
+                con.append(('a', 0))
+            else:
+                con.append(('a', s_sa[i-1]))
+            con.append(('b', dm_d1[i]))
+            con.append(('s', s_sa[i]))
+
+            m.Instance(aux, '%sa_%d' % (aux.name, i), par, con)
+
+        m.EmbeddedCode('')
+
+        reg_pipe_bits = 1 + 1 + 1 + 2 * t_bits + 2 * c_bits
+        reg_pipe_in = m.Wire('reg_pipe_in', reg_pipe_bits)
+        reg_pipe_out = m.Wire('reg_pipe_out', reg_pipe_bits)
+
+        m.EmbeddedCode('')
+        reg_pipe_in.assign(Cat(n_th_done_out, n_th_v_out, n_th_out,
+                           n_th_cell0_out, n_th_cell1_out, n_th_ch_out, n_flag_ch_out))
+
+        idx = 0
+        flag_ch_out.assign(reg_pipe_out[idx])
+        idx += 1
+        th_ch_out.assign(reg_pipe_out[idx:idx + th_ch_out.width])
+        idx += th_ch_out.width
+        th_cell1_out.assign(reg_pipe_out[idx:idx + th_cell1_out.width])
+        idx += th_cell1_out.width
+        th_cell0_out.assign(reg_pipe_out[idx:idx + th_cell0_out.width])
+        idx += th_cell0_out.width
+        th_out.assign(reg_pipe_out[idx:idx + th_out.width])
+        idx += th_out.width
+        th_v_out.assign(reg_pipe_out[idx])
+        idx += 1
+        th_done_out.assign(reg_pipe_out[idx])
+        sb.assign(s_sb[n_neighbors-1])
+        sa.assign(s_sa[n_neighbors-1])
+
+        par = [
+            ('num_stages', 3),
+            ('data_width', reg_pipe_bits)
+        ]
+        con = [
+            ('clk', clk),
+            ('data_in', reg_pipe_in),
+            ('data_out', reg_pipe_out)
+        ]
+
+        aux = self.create_register_pipeline()
+        m.Instance(aux, aux.name, par, con)
+        '''
+        num_stages = m.Parameter('num_stages', 1)
+        data_width = m.Parameter('data_width', 16)
+
+        clk = m.Input('clk')
+        # en = m.Input('en')
+        rst = m.Input('rst')
+        data_in = m.Input('in', data_width)
+        data_out = m.Output('out', data_width)
+        '''
 
         util.initialize_regs(m)
         return m
@@ -1002,10 +1170,14 @@ class SAComponents:
             return self.cache[name]
 
         par = []
+        con = []
         c_bits = ceil(log2(n_cells))
         t_bits = ceil(log2(n_threads))
         t_bits = 1 if t_bits == 0 else t_bits
         node_bits = c_bits + 1
+        lines = columns = int(sqrt(n_cells))
+        d_width = ceil(log2(lines+columns))
+        d_width += ceil(log2(n_neighbors))
 
         m = Module(name)
 
@@ -1043,6 +1215,16 @@ class SAComponents:
         aux = self.create_threads_controller()
         m.Instance(aux, aux.name, par, con)
 
+        ce0_th_done_out = m.Wire('ce0_th_done_out')
+        ce0_th_v_out = m.Wire('ce0_th_v_out')
+        ce0_th_out = m.Wire('ce0_th_out', t_bits)
+        ce0_th_cell0_out = m.Wire('ce0_th_cell0_out', c_bits)
+        ce0_th_cell1_out = m.Wire('ce0_th_cell1_out', c_bits)
+        ce0_th_ch_out = m.Wire('ce0_th_ch_out', t_bits)
+        ce0_flag_ch_out = m.Wire('ce0_flag_ch_out')
+        ce0_sb = m.Wire('ce0_sb', d_width)
+        ce0_sa = m.Wire('ce0_sa', d_width)
+
         con = [
             ('clk', clk),
             ('th_done_in', th_done),
@@ -1050,6 +1232,15 @@ class SAComponents:
             ('th_in', th),
             ('th_cell0_in', th_cell0),
             ('th_cell1_in', th_cell1),
+            ('th_done_out', ce0_th_done_out),
+            ('th_v_out', ce0_th_v_out),
+            ('th_out', ce0_th_out),
+            ('th_cell0_out', ce0_th_cell0_out),
+            ('th_cell1_out', ce0_th_cell1_out),
+            ('th_ch_out', ce0_th_ch_out),
+            ('flag_ch_out', ce0_flag_ch_out),
+            ('sb', ce0_sb),
+            ('sa', ce0_sa),
         ]
         aux = self.create_cell0_exec_pipe()
         m.Instance(aux, aux.name, par, con)
