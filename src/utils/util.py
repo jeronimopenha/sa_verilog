@@ -164,13 +164,14 @@ def bits(n):
     else:
         return int(ceil(log2(n)))
 
+
 def create_rom_files(sa_comp):
     sa_graph = sa_comp.sa_graph
     n_cells = sa_comp.sa_graph.n_cells
     n_neighbors = sa_comp.n_neighbors
     align_bits = sa_comp.align_bits
     n_threads = sa_comp.n_threads
-    
+
     c_bits = ceil(log2(n_cells))
     t_bits = ceil(log2(n_threads))
     t_bits = 1 if t_bits == 0 else t_bits
@@ -191,10 +192,15 @@ def create_rom_files(sa_comp):
     p_str_f = '{:0%dX}' % 1
     n_str_f = '{:0%dX}' % ceil(node_bits/16)
 
-    cn_w = [cn_str_f.format(0) for i in range(n_cells)]
-    nc_w = [nc_str_f.format(0) for i in range(n_cells)]
-    p_w = [p_str_f.format(0) for i in range(n_cells)]
+    cn_w = []  # [cn_str_f.format(0) for i in range(n_cells)]
+    nc_w = []  # [nc_str_f.format(0) for i in range(n_cells)]
+    p_w = []  # [p_str_f.format(0) for i in range(n_cells)]
     n_w = []
+    for t in range(n_threads):
+        cn_w.append([cn_str_f.format(0) for i in range(n_cells)])
+        nc_w.append([nc_str_f.format(0) for i in range(n_cells)])
+        p_w.append([p_str_f.format(0) for i in range(n_cells)])
+
     for c in range(n_cells):
         n_w.append([n_str_f.format(0) for i in range(n_neighbors)])
     for k in sa_graph.neighbors.keys():
@@ -203,27 +209,29 @@ def create_rom_files(sa_comp):
             n_w[k][idx] = n_str_f.format((1 << node_bits-1) | n)
             idx += 1
 
-    for cn in c_n:
-        for cni in range(len(cn)):
-            cn_w[cni] = cn_str_f.format((1 << node_bits-1) | cn[cni])
+    for t in range(len(c_n)):
+        for cni in range(len(c_n[t])):
+            cn_w[t][cni] = cn_str_f.format((1 << node_bits-1) | c_n[t][cni])
 
-    for nc in n_c:
-        for nci in range(len(nc)):
-            nc_w[nci] = nc_str_f.format(nc[nci])
+    for t in range(len(n_c)):
+        for nci in range(len(n_c[t])):
+            nc_w[t][nci] = nc_str_f.format(n_c[t][nci])
 
     with open(os.getcwd() + '/rom/n_c.rom', 'w') as f:
-        for d in nc_w:
-            f.write(d)
-            f.write('\n')
+        for t in nc_w:
+            for d in t:
+                f.write(d)
+                f.write('\n')
         if n_threads == 1:
             for d in range(n_cells):
                 f.write(nc_str_f.format(0))
                 f.write('\n')
         f.close()
     with open(os.getcwd() + '/rom/c_n.rom', 'w') as f:
-        for d in cn_w:
-            f.write(d)
-            f.write('\n')
+        for t in cn_w:
+            for d in t:
+                f.write(d)
+                f.write('\n')
         if n_threads == 1:
             for d in range(n_cells):
                 f.write(cn_str_f.format(0))
@@ -231,9 +239,10 @@ def create_rom_files(sa_comp):
         f.close()
 
     with open(os.getcwd() + '/rom/p.rom', 'w') as f:
-        for d in p_w:
-            f.write(d)
-            f.write('\n')
+        for t in p_w:
+            for d in t:
+                f.write(d)
+                f.write('\n')
         if n_threads == 1:
             for d in range(n_cells):
                 f.write(p_str_f.format(0))

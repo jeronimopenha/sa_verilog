@@ -1,5 +1,6 @@
 import os
 from math import ceil, log2, sqrt
+from pygame import init
 from veriloggen import *
 from src.utils.util import initialize_regs, SaGraph
 
@@ -85,30 +86,35 @@ class SAComponents:
         start = m.Input("start")
         done = m.OutputReg("done")
 
-        th = m.OutputReg("th", t_bits)
-        v = m.OutputReg("v")
-        cell0 = m.OutputReg("cell0", c_bits)
-        cell1 = m.OutputReg("cell1", c_bits)
+        th = m.Output("th", t_bits)
+        v = m.Output("v")
+        cell0 = m.Output("cell0", c_bits)
+        cell1 = m.Output("cell1", c_bits)
 
         m_rd = m.Reg("m_rd")
         m_rd_addr = m.Reg("m_rd_addr", t_bits)
         m_out = m.Wire("m_out", m_width)
-        m_wr = m.Reg("m_wr")
-        m_wr_addr = m.Reg("m_wr_addr", t_bits)
-        m_wr_data = m.Reg("m_wr_data", m_width)
-        sum = m.Wire('sum', m_width)
+        #m_wr = m.Reg("m_wr")
+        #m_wr_addr = m.Reg("m_wr_addr", t_bits)
+        #m_wr_data = m.Reg("m_wr_data", m_width)
+        #sum = m.Wire('sum', m_width)
         init_mem = m.Reg("init_mem", n_threads)
-        done_mem = m.Reg("done_mem", n_threads)
+        # done_mem = m.Reg("done_mem", n_threads)
 
         p_addr = m.Reg('p_addr', t_bits)
         p_rd = m.Reg('p_rd')
 
+        cell1.assign(Mux(init_mem[p_addr], m_out[0:cell0.width], 0))
+        cell0.assign(Mux(init_mem[p_addr], m_out[cell0.width:m_out.width], 0))
+        v.assign(p_rd)
+        th.assign(p_addr)
+
         m.Always(Posedge(clk))(
             If(rst)(
                 done(0),
-            ).Else(
-                done(Uand(done_mem))
-            ),
+            )  # .Else(
+            #    done(Uand(done_mem))
+            # ),
         )
 
         m.Always(Posedge(clk))(
@@ -132,29 +138,29 @@ class SAComponents:
         m.Always(Posedge(clk))(
             If(rst)(
                 init_mem(0),
-                done_mem(0),
-                v(0),
-                cell0(0),
-                cell1(0),
+                # done_mem(0),
+                # v(0),
+                # cell0(0),
+                # cell1(0),
             ).Else(
+                # m_wr(p_rd),
                 If(p_rd)(
                     If(init_mem[p_addr])(
-                        cell0(m_out[0:cell0.width]),
-                        cell1(m_out[cell0.width:m_out.width]),
-                        m_wr_data(m_out + 1),
+                        # cell0(m_out[0:cell0.width]),
+                        # cell1(m_out[cell0.width:m_out.width]),
+                        #m_wr_data(m_out + 1),
                     ).Else(
                         init_mem[p_addr](1),
-                        cell0(1),
-                        cell1(0),
-                        m_wr_data(2),
+                        # cell0(1),
+                        # cell1(0),
+                        # m_wr_data(1),
                     ),
-                    If(m_out == (n_cells * n_cells)-2)(
-                        done_mem[p_addr](1),
-                    ),
-                    m_wr_addr(p_addr),
-                    m_wr(1),
-                    th(p_addr),
-                    v(Mux(done_mem[p_addr], 0, 1)),
+                    # If(m_out == (n_cells * n_cells)-2)(
+                    #    done_mem[p_addr](1),
+                    # ),
+                    # m_wr_addr(p_addr),
+                    # th(p_addr),
+                    #v(Mux(done_mem[p_addr], 0, 1)),
                 ),
             )
         )
@@ -165,9 +171,10 @@ class SAComponents:
             ("rd", m_rd),
             ("rd_addr0", m_rd_addr),
             ("out0", m_out),
-            ("wr", m_wr),
-            ("wr_addr", m_wr_addr),
-            ("wr_data", m_wr_data),
+            ("wr", p_rd),
+            ("wr_addr", p_addr),
+            ("wr_data", Mux(init_mem[p_addr],
+             m_out+Int(1, m_out.width, 2), Int(1, m_out.width, 2))),
         ]
         aux = self.create_memory_2r_1w(m_width, t_bits)
         m.Instance(aux, aux.name, par, con)
@@ -491,7 +498,7 @@ class SAComponents:
         t_bits = 1 if t_bits == 0 else t_bits
         m_depth = c_bits + t_bits
         node_bits = c_bits + 1
-        #m_width = c_bits
+        # m_width = c_bits
 
         m = Module(name)
 
@@ -854,7 +861,7 @@ class SAComponents:
 
         clk = m.Input('clk')
         # en = m.Input('en')
-        #rst = m.Input('rst')
+        # rst = m.Input('rst')
         data_in = m.Input('data_in', data_width)
         data_out = m.Output('data_out', data_width)
 

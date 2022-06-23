@@ -57,7 +57,7 @@ def create_sa_test_bench(sa_comp: SAComponents) -> str:
         EmbeddedCode("@(posedge clk);"),
         rst(0),
         start(1),
-        Delay(200),
+        Delay(350),
         Finish(),
     )
     m.EmbeddedCode("always #5clk=~clk;")
