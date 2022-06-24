@@ -1,6 +1,5 @@
 import os
 from math import ceil, log2, sqrt
-from pygame import init
 from veriloggen import *
 from src.utils.util import initialize_regs, SaGraph
 
@@ -450,7 +449,7 @@ class SAComponents:
 
         m_out0 = m.Wire('m_out0', node_bits)
         m.EmbeddedCode('')
-        neighbor.assign(Mux(th_node0_out[th_node0_out.width], m_out0, 0))
+        neighbor.assign(Mux(th_node0_out[th_node0_out.width-1], m_out0, 0))
 
         # passing pipeline data
         m.Always(Posedge(clk))(
@@ -592,7 +591,7 @@ class SAComponents:
 
         neighbor_cell[neighbor_cell.width-1].assign(neighbor_v_p)
         neighbor_cell[:c_bits].assign(Mux(p_out0, m1_out0, m0_out0))
-        node0_v.assign(n0_v)
+        node0_v.assign(n0_v_p)
 
         m.Always(Posedge(clk))(
             flag_ch_p(flag_ch_in),
@@ -1054,6 +1053,7 @@ class SAComponents:
             con.append(('th_cell0_out', nc_th_cell0_out[i]))
             con.append(('th_cell1_out', nc_th_cell1_out[i]))
             con.append(('node0_v', nc_node0_v[i]))
+            con.append(('th_neighbor_in', n_neighbor[i]))
             con.append(('neighbor_cell', nc_neighbor_cell[i]))
 
             aux = self.create_node_cell_pipe()
@@ -1242,6 +1242,15 @@ class SAComponents:
             ('sa', ce0_sa),
         ]
         aux = self.create_cell0_exec_pipe()
+
+        m.Always(Posedge(clk))(
+            If(AndList(ce0_th_v_out, ce0_th_out == 0))(
+                Display("th:%d, c0:%d, c1:%d, sb:%d, sa:%d",
+                        ce0_th_out, ce0_th_cell0_out, 
+                        ce0_th_cell1_out, ce0_sb, ce0_sa)
+            )
+        )
+
         m.Instance(aux, aux.name, par, con)
         initialize_regs(m)
         return m
