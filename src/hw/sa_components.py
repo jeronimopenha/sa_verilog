@@ -61,7 +61,6 @@ class SAComponents:
         self.cache[name] = m
         return m
 
-    # FIXME - Change this component to run config times
     def create_threads_controller(self) -> Module:
         sa_graph = self.sa_graph
         n_cells = self.sa_graph.n_cells
@@ -1020,7 +1019,7 @@ class SAComponents:
                 con.append(('th_in', n_th_out[i-1]))
                 con.append(('th_cell0_in', n_th_cell0_out[i-1]))
                 con.append(('th_cell1_in', n_th_cell1_out[i-1]))
-                con.append(('th_node0_in', n_th_node1_out[i-1]))
+                con.append(('th_node0_in', n_th_node0_out[i-1]))
                 con.append(('th_node1_in', n_th_node1_out[i-1]))
                 con.append(('th_ch_in', n_th_ch_out[i-1]))
                 con.append(('flag_ch_in', n_flag_ch_out[i-1]))
@@ -1164,6 +1163,32 @@ class SAComponents:
         aux = self.create_register_pipeline()
         m.Instance(aux, aux.name, par, con)
 
+        '''
+        #c-n
+        m.Always(Posedge(clk))(
+            If(AndList(cn_th_v_out, cn_th_out == 0))(
+                Display("th:%d, c0:%d, c1:%d, nodes:%d %d",
+                        cn_th_out, cn_th_cell0_out, 
+                        cn_th_cell1_out, cn_node0, cn_node1)
+            )
+        )
+        '''
+        '''# neighboors
+        m.Always(Posedge(clk))(
+            If(AndList(n_th_v_out[0], n_th_out[0] == 0))(
+                Display("th:%d, c0:%d, c1:%d, nodes:%d %d, neighbor:%d",
+                        n_th_out[0], n_th_cell0_out[0],
+                        n_th_cell1_out[0], n_th_node0_out[0], n_th_node1_out[0], n_neighbor[0])
+            )
+        )'''
+        '''m.Always(Posedge(clk))(
+            If(AndList(n_th_v_out[1], n_th_out[1] == 0))(
+                Display("th:%d, c0:%d, c1:%d, nodes:%d %d, neighbor:%d",
+                        n_th_out[1], n_th_cell0_out[1],
+                        n_th_cell1_out[1], n_th_node0_out[1], n_th_node1_out[1], n_neighbor[1])
+            )
+        )'''
+        
         initialize_regs(m)
         return m
 
@@ -1246,7 +1271,7 @@ class SAComponents:
         m.Always(Posedge(clk))(
             If(AndList(ce0_th_v_out, ce0_th_out == 0))(
                 Display("th:%d, c0:%d, c1:%d, sb:%d, sa:%d",
-                        ce0_th_out, ce0_th_cell0_out, 
+                        ce0_th_out, ce0_th_cell0_out,
                         ce0_th_cell1_out, ce0_sb, ce0_sa)
             )
         )

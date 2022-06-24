@@ -6,6 +6,7 @@ import random
 
 def sa(sa_graph: SaGraph, t_min: int):
     n_threads = sa_graph.n_cells
+    sa_graph.reset_random()
     random.seed(0)
     c_n = []
     n_c = []
@@ -18,19 +19,19 @@ def sa(sa_graph: SaGraph, t_min: int):
     # execução do SA
     for thread in range(n_threads):
         actual_cost = sa_graph.get_total_cost(c_n[thread], n_c[thread])
-        #print(actual_cost)
+        # print(actual_cost)
         i == 0
         while t >= t_min:
             # for i in range(t_min):
-            if i == 1: return
+            if i == 1:
+                return
             for cell1 in range(sa_graph.n_cells):
-                print()
                 for cell2 in range(sa_graph.n_cells):
                     i = 1
                     #cell1 = random.randint(0,sa_graph.n_cells-1)
                     #cell2 = random.randint(0,sa_graph.n_cells-1)
-                    if cell1 == cell2:
-                        continue
+                    # if cell1 == cell2:
+                    #    continue
                     next_cost = actual_cost
                     node1 = c_n[thread][cell1]
                     node2 = c_n[thread][cell2]
@@ -39,7 +40,9 @@ def sa(sa_graph: SaGraph, t_min: int):
                     cost_cell1_b, cost_cell1_a, cost_cell2_b, cost_cell2_a = sa_graph.get_cost(
                         n_c[thread], node1, node2, cell1, cell2)
 
-                    print('%d %d' % (cost_cell1_b, cost_cell1_a))
+                    print('th:%d c0:%d, c1:%d, sb:%d, sa:%d' %
+                          (thread, cell1, cell2, cost_cell1_b, cost_cell1_a))
+                    continue
                     next_cost -= cost_cell1_b
                     next_cost -= cost_cell2_b
                     next_cost += cost_cell1_a
@@ -67,6 +70,6 @@ def sa(sa_graph: SaGraph, t_min: int):
                         # = sa_graph.get_total_cost(c_n[thread], n_c[thread])
                         actual_cost = next_cost
 
-                #print(actual_cost)
+                # print(actual_cost)
             t *= 0.999
     #print(sa_graph.get_total_cost(c_n[thread], n_c[thread]))

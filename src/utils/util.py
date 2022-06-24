@@ -17,8 +17,10 @@ class SaGraph:
         self.neighbors = {}
         self.n_cells = 0
         self.n_cells_sqrt = 0
-        random.seed(0)
         self.get_dot_vars()
+
+    def reset_random(self):
+        random.seed(0)
 
     def get_initial_grid(self) -> list():
         n_nodes = len(self.nodes)
@@ -179,6 +181,8 @@ def create_rom_files(sa_comp):
     lines = columns = int(sqrt(n_cells))
     d_width = ceil(log2(lines+columns))
     d_width += ceil(log2(n_neighbors))
+
+    sa_graph.reset_random()
 
     c_n = []
     n_c = []
