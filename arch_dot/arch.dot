@@ -1,0 +1,103 @@
+digraph "SA_HW" {
+  graph [
+    fontsize = "10",
+    fontname = "Verdana",
+    compound = "true",
+  ];
+  edge [
+    fontsize = "10",
+    fontname = "Verdana",
+  ];
+  node [
+    shape = "record",
+    fontsize = "10",
+    fontname = "Verdana",
+  ];
+  "thread_controller" [
+    label = "thread_controller",
+  ];
+  "cost_memory" [
+    label = "cost_memory",
+  ];
+  "new_cost_calculator" [
+    label = "new_cost_calculator",
+  ];
+  "change_cells_definer" [
+    label = "change_cells_definer",
+  ];
+  subgraph "cluster_cell0_exec_block" {
+    label = "Cell1 exec";
+    // nodes
+    "a_cell_to_node" [
+      label = "cell_to_node",
+    ];
+    "a_neighbors" [
+      label = "neighbors",
+    ];
+    "a_reg_pipe0" [
+      label = "reg_pipe",
+    ];
+    "a_reg_pipe1" [
+      label = "reg_pipe",
+    ];
+    "a_reg_pipe2" [
+      label = "reg_pipe",
+    ];
+    "a_node_to_cell" [
+      label = "node_to_cell",
+    ];
+    "a_cell_selector" [
+      label = "cell_selector",
+    ];
+    "a_manhattan_distance_mem" [
+      label = "manhattan_distance_mem",
+    ];
+    "a_adder_b" [
+      label = "adder_b",
+    ];
+    "a_adder_a" [
+      label = "adder_a",
+    ];
+    // edges
+    "a_cell_to_node" -> "a_neighbors" [
+      label = "st2_th_idx\lst2_cell0\lst2_cell1\lst2_node0\lst2_node1\lst???_ch_flag\l",
+    ];
+    "a_neighbors" -> "a_node_to_cell" [
+      label = "st3_th_idx-2\lcell0[th_idx-2]\lcell1[th_idx-2]\lnode0[th_idx-2]\lnode1[th_idx-2]\lneighbor[t_idx-2]\lch_flag[th_idx-9]\l",
+    ];
+    "a_neighbors" -> "a_reg_pipe0" [
+      label = "th_idx-2",
+    ];
+    "a_reg_pipe0" -> "a_reg_pipe1" [
+      label = "th_idx-3",
+    ];
+    "a_reg_pipe1" -> "a_reg_pipe2" [
+      label = "th_idx-4",
+    ];
+    "a_reg_pipe2" -> "a_cost_memory" [
+      label = "th_idx-5",
+    ];
+    "a_node_to_cell" -> "a_cell_selector" [
+      label = "cell0[th_idx-3]\lcell1[th_idx-3]\lnode0_v[th_idx-3]\lneighbor_v[th_idx-3]\lneighbor_cell[th_idx-3]\l",
+    ];
+    "a_cell_selector" -> "a_manhattan_distance_mem" [
+      label = "cell_before[th_idx-4]\lcell_after[th_idx-4]\lneighbor_cell[th_idx-4]\l",
+    ];
+    "a_manhattan_distance_mem" -> "a_adder_b" [
+      label = "dist_before[th_idx-5]",
+    ];
+    "a_manhattan_distance_mem" -> "a_adder_a" [
+      label = "dist_after[th_idx-5]",
+    ];
+  }
+  "thread_controller" -> "a_cell_to_node" [
+    label = "st1_th_idx\lst1_cell0\lst1_cell1\l",
+  ];
+  "a_adder_b" -> "new_cost_calculator" [
+    label = "sum_dist_before",
+  ];
+  "a_adder_a" -> "new_cost_calculator" [
+    label = "sum_dist_after",
+  ];
+  "a_cost_memory" -> "new_cost_calculator";
+}
