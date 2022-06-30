@@ -5,6 +5,7 @@ import random
 
 
 def sa(sa_graph: SaGraph, t_min: int):
+    # FIXME n_threads estranho aqui
     n_threads = sa_graph.n_cells
     sa_graph.reset_random()
     random.seed(0)
@@ -40,9 +41,9 @@ def sa(sa_graph: SaGraph, t_min: int):
                     cost_cell1_b, cost_cell1_a, cost_cell2_b, cost_cell2_a = sa_graph.get_cost(
                         n_c[thread], node1, node2, cell1, cell2)
 
-                    #print('th:%d c0:%d, c1:%d, sb:%d, sa:%d' %
+                    # print('th:%d c0:%d, c1:%d, sb:%d, sa:%d' %
                     #      (thread, cell1, cell2, cost_cell1_b, cost_cell1_a))
-                    #continue
+                    # continue
                     next_cost -= cost_cell1_b
                     next_cost -= cost_cell2_b
                     next_cost += cost_cell1_a
