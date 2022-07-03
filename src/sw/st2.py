@@ -1,5 +1,5 @@
 from math import ceil, log2
-from src.sw.st1 import St1
+import src.sw.st1 as _st1
 
 from src.utils.util import SaGraph
 
@@ -22,8 +22,8 @@ class St2:
         self.fifo_idx = [0 for i in range(self.n_threads)]
 
         self.output = {
-            'ca': [0 for i in range(2)],
-            'cb': [0 for i in range(2)],
+            'ca': [0, 0],
+            'cb': [0, 0],
             'v': False,
             'idx': 0,
             'w_a': {'c': 0, 'n': None},
@@ -36,7 +36,9 @@ class St2:
         }
         self.output_new = self.output.copy()
 
-    def execute(self, st1: St1, st9):
+    # bus = fanout 2
+    # wire = fanout 4
+    def execute(self, st1: _st1.St1, st9):
         # reading pipe inputs
         idx = st1.output['idx']
         ca = st1.output['ca']
@@ -44,7 +46,8 @@ class St2:
         v = st1.output['v']
 
         # node 2 cell area
-        na = 
+        na = self.c2n[idx][0][ca]
+        nb = self.c2n[idx][0][ca]
         # ----
 
         # Queue area
@@ -56,8 +59,8 @@ class St2:
         if v[0]:  # 2
             wb = self.fifo_b.pop()
         # enqueuing data
-        self.fifo_a.append({'idx': self.output_new['idx'], 'c': 0, 'n': None})
-        self.fifo_a.append({'idx': self.output_new['idx'], 'c': 0, 'n': None})
+        self.fifo_a.append({'c': 0, 'n': None})
+        self.fifo_a.append({'c': 0, 'n': None})
         self.fifo_idx.append(self.output_new['idx'])
 
         # node 2 cell area

@@ -1,6 +1,7 @@
 from math import ceil, log2, sqrt, pow
 
-from src.utils.util import SaGraph
+import src.utils.util as _util
+import src.sw.st9 as _st9
 
 
 class St1:
@@ -8,7 +9,7 @@ class St1:
     First Pipe from SA_Verilog. This pipe is responsible to generate the values for esach thread.
     """
 
-    def __init__(self, sa_graph: SaGraph, n_threads: int = 10):
+    def __init__(self, sa_graph: _util.SaGraph, n_threads: int = 10):
         self.sa_graph = sa_graph
         self.n_threads = n_threads
         self.n_cells = sa_graph.n_cells
@@ -22,35 +23,37 @@ class St1:
         self.v = [True for i in range(self.n_threads)]
         self.idx = 0
 
-        self.output = {
-            'ca': [0 for i in range(2)],
-            'cb': [0 for i in range(2)],
-            'v': [True for i in range(2)],
-            'idx': [0 for i in range(2)]
+        self.output_new = {
+            'ca': [0, 0],
+            'cb': [0, 0],
+            'v': [True, True],
+            'idx': [0, 0]
         }
+
+        self.output = self.output_new.copy()
 
     def execute(self):
         idx = self.idx
         t_bits = self.t_bits
         c_bits = self.c_bits
         mask = self.mask
+        # commit outputs
+        self.output = self.output_new.copy()
+
+        # process the new output
         self.idx += 1
         if self.idx == self.n_threads:
             self.idx = 0
         self.v[idx] = not self.v[idx]
-        if not self.v[idx]:
-            return
-        self.counter[idx] += 1
-        if self.counter[idx] >= pow(self.n_cells, 2):
-            self.counter[idx] = 0
-        self.ca[idx] = self.counter[idx] & mask
-        self.cb[idx] = (self.counter[idx] >> c_bits) & mask
-
-    def commit(self):
-        idx = self.idx
-        self.output = {
-            'ca': [self.ca[idx] for i in range(2)],
-            'cb': [self.cb[idx] for i in range(2)],
-            'v': [self.v[idx] for i in range(2)],
-            'idx': [self.idx for i in range(2)]
+        if self.v[idx]:
+            self.counter[idx] += 1
+            if self.counter[idx] >= pow(self.n_cells, 2):
+                self.counter[idx] = 0
+            self.ca[idx] = self.counter[idx] & mask
+            self.cb[idx] = (self.counter[idx] >> c_bits) & mask
+        self.output_new = {
+            'ca': [self.ca[idx], self.ca[idx]],
+            'cb': [self.cb[idx], self.cb[idx]],
+            'v': [self.v[idx], self.v[idx]],
+            'idx': [self.idx, self.idx]
         }
