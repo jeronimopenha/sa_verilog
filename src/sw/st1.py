@@ -41,16 +41,17 @@ class St1:
         self.output = self.output_new.copy()
 
         # process the new output
-        self.idx += 1
-        if self.idx == self.n_threads:
-            self.idx = 0
-        self.v[idx] = not self.v[idx]
-        if self.v[idx]:
+        if not self.v[idx]:
             self.counter[idx] += 1
             if self.counter[idx] >= pow(self.n_cells, 2):
                 self.counter[idx] = 0
             self.ca[idx] = self.counter[idx] & mask
             self.cb[idx] = (self.counter[idx] >> c_bits) & mask
+        self.v[idx] = not self.v[idx]
+        self.idx += 1
+        if self.idx == self.n_threads:
+            self.idx = 0
+        idx = self.idx
         self.output_new = {
             'ca': [self.ca[idx], self.ca[idx]],
             'cb': [self.cb[idx], self.cb[idx]],
