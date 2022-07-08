@@ -7,6 +7,3 @@ class St8:
 
     def execute(self, st7: St7):
         pass
-
-    def update_output(self):
-        pass

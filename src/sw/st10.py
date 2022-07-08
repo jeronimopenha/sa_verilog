@@ -4,6 +4,3 @@ class St10:
 
     def execute(self):
         pass
-
-    def update_output(self):
-        pass
