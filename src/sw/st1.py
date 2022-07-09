@@ -8,7 +8,7 @@ class St1:
     First Pipe from SA_Verilog. This pipe is responsible to generate the values for esach thread.
     """
 
-    def __init__(self, sa_graph: _u.SaGraph, n_threads: int = 10):
+    def __init__(self, sa_graph: _u.SaGraph, n_threads: int = 10):     
         self.sa_graph = sa_graph
         self.n_threads = n_threads
         self.n_cells = sa_graph.n_cells

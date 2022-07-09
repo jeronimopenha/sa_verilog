@@ -105,11 +105,11 @@ class SaGraph:
                     cost2_a += self.get_manhattan_distance(cell1, n_c[n])
         return cost1_b, cost1_a, cost2_b, cost2_a
 
-    def get_manhattan_distance(self, idx1: int, idx2: int) -> int:
-        cell1_x = idx1 % self.n_cells_sqrt
-        cell1_y = idx1 // self.n_cells_sqrt
-        cell2_x = idx2 % self.n_cells_sqrt
-        cell2_y = idx2 // self.n_cells_sqrt
+    def get_manhattan_distance(self, cell1: int, cell2: int) -> int:
+        cell1_x = cell1 % self.n_cells_sqrt
+        cell1_y = cell1 // self.n_cells_sqrt
+        cell2_x = cell2 % self.n_cells_sqrt
+        cell2_y = cell2 // self.n_cells_sqrt
         return abs(cell1_y - cell2_y) + abs(cell1_x - cell2_x)
 
 

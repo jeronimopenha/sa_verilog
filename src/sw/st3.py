@@ -1,5 +1,4 @@
 import src.utils.util as _u
-import src.sw.st2 as _st2
 
 
 class St3:
@@ -25,25 +24,25 @@ class St3:
         }
         self.output = self.output_new.copy()
 
-    def execute(self, st2: _st2.St2):
+    def execute(self, _in: dict()):
         # moving forward the ready outputs
         self.output = self.output_new.copy()
 
         # reading pipe inputs
-        self.output_new['idx'] = st2.output['idx']
-        self.output_new['v'] = st2.output['v']
-        self.output_new['ca'] = st2.output['ca']
-        self.output_new['cb'] = st2.output['cb']
-        self.output_new['na'] = st2.output['na']
-        self.output_new['nb'] = st2.output['nb']
-        self.output_new['wa'] = st2.output['wa']
-        self.output_new['wb'] = st2.output['wb']
+        self.output_new['idx'] = _in['idx']
+        self.output_new['v'] = _in['v']
+        self.output_new['ca'] = _in['ca']
+        self.output_new['cb'] = _in['cb']
+        self.output_new['na'] = _in['na']
+        self.output_new['nb'] = _in['nb']
+        self.output_new['wa'] = _in['wa']
+        self.output_new['wb'] = _in['wb']
 
         self.output_new['va'] = [None, None, None, None]
         self.output_new['vb'] = [None, None, None, None]
 
-        na = st2.output['na']
-        nb = st2.output['nb']
+        na = _in['na']
+        nb = _in['nb']
         if na is not None:
             for i in range(len(self.neighbors[na])):
                 self.output_new['va'][i] = self.neighbors[na][i]
