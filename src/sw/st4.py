@@ -3,16 +3,13 @@ import src.utils.util as _u
 
 class St4:
     """
-    Fourth Pipe from SA_Verilog. This pipe is responsible to bring the neighboor's cell from each neighbor node.
+    Fourth Pipe from SA_Verilog. This pipe is responsible to find the manhatan 
+    distances for each combination between cellA and cellB with their 
+    respective neighboors cells before swap.
     """
 
-    def __init__(self, sa_graph: _u.SaGraph, n_threads: int = 10):
+    def __init__(self, sa_graph: _u.SaGraph):
         self.sa_graph = sa_graph
-        self.sa_graph.reset_random()
-        self.n_threads = n_threads
-        self.n2c = [sa_graph.get_initial_grid()[1]
-                    for i in range(self.n_threads)]
-
         self.output_new = {
             'idx': 0,
             'v': False,
@@ -20,8 +17,8 @@ class St4:
             'cb': 0,
             'cva': [None, None, None, None],
             'cvb': [None, None, None, None],
-            'wa': {'idx': 0, 'c': 0, 'n': None},
-            'wb': {'idx': 0, 'c': 0, 'n': None},
+            'dvac': [0, 0, 0, 0],
+            'dvbc': [0, 0, 0, 0]
         }
         self.output = self.output_new.copy()
 
@@ -29,28 +26,31 @@ class St4:
         # moving forward the ready outputs
         self.output = self.output_new.copy()
 
-        # reading pipe inputs
         self.output_new['idx'] = _in['idx']
         self.output_new['v'] = _in['v']
         self.output_new['ca'] = _in['ca']
         self.output_new['cb'] = _in['cb']
-        self.output_new['wa'] = _in['wa']
-        self.output_new['wb'] = _in['wb']
+        self.output_new['cva'] = _in['cva']
+        self.output_new['cvb'] = _in['cvb']
 
-        self.output_new['cva'] = [None, None, None, None]
-        self.output_new['cvb'] = [None, None, None, None]
+        self.output_new['dvac'] = [0, 0, 0, 0]
+        self.output_new['dvbc'] = [0, 0, 0, 0]
 
-        idx = _in['idx']
-        va = _in['va']
-        vb = _in['vb']
+        ca = _in['ca']
+        cb = _in['cb']
+        cva = _in['cva']
+        cvb = _in['cvb']
 
-        for i in range(len(va)):
-            if va[i] is not None:
-                self.output_new['cva'][i] = self.n2c[idx][va[i]]
+        for i in range(len(cva)):
+            if cva[i] is not None:
+                self.output_new['dvac'][i] = self.sa_graph.get_manhattan_distance(
+                    ca, cva[i])
             else:
                 break
-        for i in range(len(vb)):
-            if vb[i] is not None:
-                self.output_new['cvb'][i] = self.n2c[idx][vb[i]]
+
+        for i in range(len(cvb)):
+            if cvb[i] is not None:
+                self.output_new['dvbc'][i] = self.sa_graph.get_manhattan_distance(
+                    cb, cvb[i])
             else:
                 break

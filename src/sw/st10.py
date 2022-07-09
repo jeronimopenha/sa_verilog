@@ -1,6 +1,6 @@
 class St10:
     """
-    tenth Pipe from SA_Verilog. This pipe is responsible to take the decision to do the swap or not.
+    Tenth Pipe from SA_Verilog. This pipe is responsible to generate a sync delay
     """
 
     def __init__(self):
@@ -17,8 +17,6 @@ class St10:
 
         self.output_new['idx'] = _in['idx']
         self.output_new['v'] = _in['v']
+        self.output_new['sw'] = _in['sw']
 
-        dc = _in['dc']
-        ds = _in['ds']
-
-        self.output_new['sw'] = ds < dc
+        

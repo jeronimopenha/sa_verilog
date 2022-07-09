@@ -3,19 +3,12 @@ import src.utils.util as _u
 
 class St2:
     """
-    Second Pipe from SA_Verilog. This pipe is responsible to search the content of the two cells selected by threads
+    Second Pipe from SA_Verilog. This pipe is responsible to bring the neighboor from each node selected in the left pipe in the graph.
     """
 
-    def __init__(self, sa_graph: _u.SaGraph, n_threads: int = 10):
+    def __init__(self, sa_graph: _u.SaGraph):
         self.sa_graph = sa_graph
-        self.sa_graph.reset_random()
-        self.n_threads = n_threads
-        self.c2n = [sa_graph.get_initial_grid()[0]
-                    for i in range(self.n_threads)]
-        self.fifo_a = [{'idx': 0, 'c': 0, 'n': None}
-                       for i in range(self.n_threads)]
-        self.fifo_b = [{'idx': 0, 'c': 0, 'n': None}
-                       for i in range(self.n_threads)]
+        self.neighbors = self.sa_graph.neighbors
 
         self.output_new = {
             'idx': 0,
@@ -24,56 +17,37 @@ class St2:
             'cb': 0,
             'na': None,
             'nb': None,
+            'va': [None, None, None, None],
+            'vb': [None, None, None, None],
+            'sw': {'idx': 0, 'v': False, 'sw': False},
             'wa': {'idx': 0, 'c': 0, 'n': None},
             'wb': {'idx': 0, 'c': 0, 'n': None},
         }
         self.output = self.output_new.copy()
 
-    # TODO update logic
-    def execute(self, _in: dict(), _sw: dict()):
-        if _sw['sw']:
-            a = 1
+    def execute(self, _in: dict()):
         # moving forward the ready outputs
         self.output = self.output_new.copy()
 
         # reading pipe inputs
-        idx = _in['idx']
-        v = _in['v']
-        ca = _in['ca']
-        cb = _in['cb']
+        self.output_new['idx'] = _in['idx']
+        self.output_new['v'] = _in['v']
+        self.output_new['ca'] = _in['ca']
+        self.output_new['cb'] = _in['cb']
+        self.output_new['na'] = _in['na']
+        self.output_new['nb'] = _in['nb']
+        self.output_new['sw'] = _in['sw']
+        self.output_new['wa'] = _in['wa']
+        self.output_new['wb'] = _in['wb']
 
-        # enqueuing data
-        if v:
-            self.fifo_a.append(
-                {'idx': self.output_new['idx'], 'c': self.output_new['ca'], 'n': self.output_new['na']})
-            self.fifo_b.append(
-                {'idx': self.output_new['idx'], 'c': self.output_new['ca'], 'n': self.output_new['nb']})
+        self.output_new['va'] = [None, None, None, None]
+        self.output_new['vb'] = [None, None, None, None]
 
-        # Pop Queues
-        wa = self.output_new['wa']
-        wb = self.output_new['wb']
-        if v:
-            wa = self.fifo_a.pop()
-            wb = self.fifo_b.pop()
-
-        # fifos outptuts ready to be moved forward
-        self.output_new['wa'] = wa
-        self.output_new['wb'] = wb
-
-        # update memory
-        if _sw['sw']:
-            if v:
-                self.c2n[wa['idx']][wa['c']] = wa['n']
-            else:
-                self.c2n[self.output['wb']['idx']][self.output['wb']
-                                                   ['c']] = self.output['wb']['n']
-
-        # data ready to be moved forward
-        self.output_new['idx'] = idx
-        self.output_new['v'] = v
-        self.output_new['ca'] = ca
-        self.output_new['cb'] = cb
-
-        # cell content ready to be moved forward
-        self.output_new['na'] = self.c2n[idx][ca]
-        self.output_new['nb'] = self.c2n[idx][cb]
+        na = _in['na']
+        nb = _in['nb']
+        if na is not None:
+            for i in range(len(self.neighbors[na])):
+                self.output_new['va'][i] = self.neighbors[na][i]
+        if nb is not None:
+            for i in range(len(self.neighbors[nb])):
+                self.output_new['vb'][i] = self.neighbors[nb][i]

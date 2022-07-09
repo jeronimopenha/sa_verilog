@@ -1,15 +1,13 @@
 class St9:
     """
-    Ninth Pipe from SA_Verilog. This pipe is responsible to execute the 2-2 
-    additions for the distances found in the left pipe.
+    Ninth Pipe from SA_Verilog. This pipe is responsible to take the decision to do the swap or not.
     """
 
     def __init__(self):
         self.output_new = {
             'idx': 0,
             'v': False,
-            'dc': 0,
-            'ds': 0
+            'sw': False
         }
         self.output = self.output_new.copy()
 
@@ -21,9 +19,6 @@ class St9:
         self.output_new['v'] = _in['v']
 
         dc = _in['dc']
-        dvas = _in['dvas']
-        dvbs = _in['dvbs']
+        ds = _in['ds']
 
-        self.output_new['dc'] = _in['dc']
-        self.output_new['ds'] = dvas + dvbs
-        
+        self.output_new['sw'] = ds < dc

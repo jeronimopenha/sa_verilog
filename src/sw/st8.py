@@ -1,4 +1,4 @@
-class St8:
+class St9:
     """
     Eighth Pipe from SA_Verilog. This pipe is responsible to execute the 2-2 
     additions for the distances found in the left pipe.
@@ -9,8 +9,7 @@ class St8:
             'idx': 0,
             'v': False,
             'dc': 0,
-            'dvas': 0,
-            'dvbs': 0
+            'ds': 0
         }
         self.output = self.output_new.copy()
 
@@ -21,12 +20,10 @@ class St8:
         self.output_new['idx'] = _in['idx']
         self.output_new['v'] = _in['v']
 
-        dvac = _in['dvac']
-        dvbc = _in['dvbc']
+        dc = _in['dc']
         dvas = _in['dvas']
         dvbs = _in['dvbs']
 
-        self.output_new['dc'] = dvac + dvbc
-        self.output_new['dvas'] = dvas[0] + dvas[1]
-        self.output_new['dvbs'] = dvbs[0] + dvbs[1]
+        self.output_new['dc'] = _in['dc']
+        self.output_new['ds'] = dvas + dvbs
         
