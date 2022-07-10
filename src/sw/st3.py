@@ -26,7 +26,7 @@ class St3:
             'wb': {'idx': 0, 'c': 0, 'n': None},
         }
         self.output = self.output_new.copy()
-        self.print_matrix(0)
+        self.print_matrix(3)
 
     def execute(self, _in: dict(),  _wb: dict()):
         # moving forward the ready outputs
@@ -38,12 +38,14 @@ class St3:
         uwb = _wb
         if usw:
             if self.flag:
-                self.c2n[uwa['idx']][uwa['c']] = uwa['n']
+                if uwa['n'] is not None:
+                    self.n2c[uwa['idx']][uwa['n']] = uwa['c']
                 self.flag = not self.flag
             else:
-                self.c2n[uwb['idx']][uwb['c']] = uwb['n']
+                if uwb['n'] is not None:
+                    self.n2c[uwb['idx']][uwb['n']] = uwb['c']
                 self.flag = not self.flag
-                if(uwb['idx'] == 0):
+                if(uwb['idx'] == 3):
                     self.print_matrix(uwb['idx'])
 
         # reading pipe inputs
@@ -76,11 +78,11 @@ class St3:
 
     def print_matrix(self, idx: int):
         sqrt_ = ceil(sqrt(len(self.n2c[idx])))
-        cidx = 0
-        str_ = 'th:%d\n' % idx
+        nidx = 0
+        str_ = 'n2c_th:%d\n' % idx
         for i in range(sqrt_):
             for j in range(sqrt_):
-                str_ += '%d ' % self.n2c[idx][cidx]
-                cidx += 1
+                str_ += '%d ' % self.n2c[idx][nidx]
+                nidx += 1
             str_ += '\n'
         print(str_)

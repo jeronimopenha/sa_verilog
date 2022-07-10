@@ -33,7 +33,7 @@ if __name__ == '__main__':
     st9 = _st9.St9()
     st10 = _st10.St10()
 
-    for i in range(288):
+    for i in range(288*2):
         th.execute()
         st1.execute(th.output, st9.output, st1.output['wb'])
         st2.execute(st1.output)
@@ -45,5 +45,5 @@ if __name__ == '__main__':
         st8.execute(st7.output)
         st9.execute(st8.output)
         st10.execute(st9.output)
-        #print('%d %d %d %d %d %d %d %d %d %d' % (st1.output['idx'], st2.output['idx'], st3.output['idx'], st4.output['idx'],
+        # print('%d %d %d %d %d %d %d %d %d %d' % (st1.output['idx'], st2.output['idx'], st3.output['idx'], st4.output['idx'],
         #      st5.output['idx'], st6.output['idx'], st7.output['idx'], st8.output['idx'], st9.output['idx'], st10.output['idx']))
