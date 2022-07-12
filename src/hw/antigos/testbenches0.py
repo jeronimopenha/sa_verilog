@@ -3,7 +3,7 @@ import os
 
 from veriloggen import *
 
-from src.hw.sa_components import SAComponents
+from src.hw.antigo1 import SAComponents
 from src.utils.util import create_rom_files, initialize_regs
 from math import ceil, log2, sqrt
 

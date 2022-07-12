@@ -26,7 +26,7 @@ class St3:
             'wb': {'idx': 0, 'c': 0, 'n': None},
         }
         self.output = self.output_new.copy()
-        self.print_matrix(3)
+        # self.print_matrix(0)
 
     def execute(self, _in: dict(),  _wb: dict()):
         # moving forward the ready outputs
@@ -45,8 +45,8 @@ class St3:
                 if uwb['n'] is not None:
                     self.n2c[uwb['idx']][uwb['n']] = uwb['c']
                 self.flag = not self.flag
-                if(uwb['idx'] == 3):
-                    self.print_matrix(uwb['idx'])
+                # if(uwb['idx'] == 0):
+                #    self.print_matrix(uwb['idx'])
 
         # reading pipe inputs
         self.output_new['idx'] = _in['idx']

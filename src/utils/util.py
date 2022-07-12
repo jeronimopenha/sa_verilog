@@ -1,6 +1,7 @@
 from veriloggen import *
 from math import ceil, log2, sqrt
 import subprocess
+import pygraphviz as pgv
 import networkx as nx
 import random
 
@@ -47,7 +48,9 @@ class SaGraph:
 
     def get_dot_vars(self):
         dot = self.dot
-        g = nx.Graph(nx.nx_pydot.read_dot(dot))
+        #g = nx.Graph(nx.nx_pydot.read_dot(dot))
+        gv = pgv.AGraph(dot, strict=False, directed=True)
+        g = nx.DiGraph(gv)
         self.nodes = list(g.nodes)
         self.n_nodes = len(self.nodes)
         self.edges = list(g.edges)
