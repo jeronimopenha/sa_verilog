@@ -21,6 +21,57 @@ class SAComponents:
         self.n_threads = n_threads
         self.cache = {}
 
+    def create_distance_rom(self) -> Module:
+        # manhattan
+        sa_graph = self.sa_graph
+        n_cells = self.sa_graph.n_cells
+        n_neighbors = self.n_neighbors
+        align_bits = self.align_bits
+        n_threads = self.n_threads
+        lines = columns = int(sqrt(n_cells))
+
+        name = 'distance_rom_%d_%d' % (lines, columns)
+        if name in self.cache.keys():
+            return self.cache[name]
+
+        c_bits = ceil(log2(n_cells))
+        t_bits = ceil(log2(n_threads))
+        t_bits = 1 if t_bits == 0 else t_bits
+        node_bits = c_bits
+        lines = columns = int(sqrt(n_cells))
+        w_bits = t_bits+c_bits+node_bits+1
+        dist_bits = c_bits + ceil(log2(n_neighbors*2))
+
+        m = Module(name)
+
+        opa0 = m.Input('opa0', c_bits)
+        opa1 = m.Input('opa1', c_bits)
+        opav = m.Input('opav')
+        opb0 = m.Input('opb0', c_bits)
+        opb1 = m.Input('opb1', c_bits)
+        opbv = m.Input('opbv')
+        da = m.Output('da', dist_bits)
+        db = m.Output('db', dist_bits)
+
+        mem = m.Wire('mem', dist_bits, Power(n_cells, 2))
+
+        da.assign(Mux(opav, mem[Cat(opa1, opa0)], 0))
+        db.assign(Mux(opbv, mem[Cat(opb1, opb0)], 0))
+
+        r = int(sqrt(int(n_cells)))
+        c = 0
+        for x1 in range(r):
+            for y1 in range(r):
+                for x2 in range(r):
+                    for y2 in range(r):
+                        d = abs(y1-y2) + abs(x1-x2)
+                        mem[c].assign(Int(d, dist_bits, 10))
+                        c = c + 1
+
+        initialize_regs(m)
+        self.cache[name] = m
+        return m
+
     def create_st1_c2n(self) -> Module:
         sa_graph = self.sa_graph
         n_cells = self.sa_graph.n_cells
@@ -37,8 +88,6 @@ class SAComponents:
         t_bits = 1 if t_bits == 0 else t_bits
         node_bits = c_bits
         lines = columns = int(sqrt(n_cells))
-        d_width = ceil(log2(lines+columns))
-        d_width += ceil(log2(n_neighbors))
         w_bits = t_bits+c_bits+node_bits+1
         dist_bits = c_bits + ceil(log2(n_neighbors*2))
 
@@ -86,8 +135,6 @@ class SAComponents:
         t_bits = 1 if t_bits == 0 else t_bits
         node_bits = c_bits
         lines = columns = int(sqrt(n_cells))
-        d_width = ceil(log2(lines+columns))
-        d_width += ceil(log2(n_neighbors))
         w_bits = t_bits+c_bits+node_bits+1
         dist_bits = c_bits + ceil(log2(n_neighbors*2))
 
@@ -143,8 +190,6 @@ class SAComponents:
         t_bits = 1 if t_bits == 0 else t_bits
         node_bits = c_bits
         lines = columns = int(sqrt(n_cells))
-        d_width = ceil(log2(lines+columns))
-        d_width += ceil(log2(n_neighbors))
         w_bits = t_bits+c_bits+node_bits+1
         dist_bits = c_bits + ceil(log2(n_neighbors*2))
 
@@ -178,7 +223,6 @@ class SAComponents:
         cvb_out = m.OutputReg('cvb_out', c_bits*n_neighbors)
         cvb_v_out = m.OutputReg('cvb_v_out', n_neighbors)
         wb_out = m.OutputReg('wb_out', w_bits)
-        # -----
 
         initialize_regs(m)
         self.cache[name] = m
@@ -200,8 +244,6 @@ class SAComponents:
         t_bits = 1 if t_bits == 0 else t_bits
         node_bits = c_bits
         lines = columns = int(sqrt(n_cells))
-        d_width = ceil(log2(lines+columns))
-        d_width += ceil(log2(n_neighbors))
         w_bits = t_bits+c_bits+node_bits+1
         dist_bits = c_bits + ceil(log2(n_neighbors*2))
 
@@ -228,6 +270,53 @@ class SAComponents:
         cvb_v_out = m.OutputReg('cvb_v_out', n_neighbors)
         dvac_out = m.OutputReg('dvac_out', n_neighbors*dist_bits)
         dvbc_out = m.OutputReg('dvbc_out', n_neighbors*dist_bits)
+        # -----
+
+        dvac_t = m.Wire('dvac_t', n_neighbors*dist_bits)
+        dvbc_t = m.Wire('dvbc_t', n_neighbors*dist_bits)
+
+        m.Always(Posedge(clk))(
+            idx_out(idx_in),
+            v_out(v_in),
+            ca_out(ca_in),
+            cb_out(cb_in),
+            cva_out(cva_in),
+            cva_v_out(cva_v_in),
+            cvb_out(cvb_in),
+            cvb_v_out(cvb_v_in),
+            dvac_out(dvac_t),
+            dvbc_out(dvbc_t),
+        )
+
+        for i in range(0, (n_neighbors//2)+1, 2):
+            par = []
+            con = [
+                ('opa0', ca_in),
+                ('opa1', cva_in[i*c_bits:c_bits*(i+1)]),
+                ('opav', cva_v_in[i]),
+                ('opb0', ca_in),
+                ('opb1', cva_in[c_bits*(i+1):c_bits*(i+2)]),
+                ('opbv', cva_v_in[i+1]),
+                ('da', dvac_t[i*dist_bits:dist_bits*(i+1)]),
+                ('db', dvac_t[dist_bits*(i+1):dist_bits*(i+2)]),
+            ]
+            aux = self.create_distance_rom()
+            m.Instance(aux, '%s_da_%d' % (aux.name, (i // 2)), par, con)
+
+        for i in range(0, (n_neighbors//2)+1, 2):
+            par = []
+            con = [
+                ('opa0', cb_in),
+                ('opa1', cvb_in[i*c_bits:c_bits*(i+1)]),
+                ('opav', cvb_v_in[i]),
+                ('opb0', cb_in),
+                ('opb1', cvb_in[c_bits*(i+1):c_bits*(i+2)]),
+                ('opbv', cvb_v_in[i+1]),
+                ('da', dvbc_t[i*dist_bits:dist_bits*(i+1)]),
+                ('db', dvbc_t[dist_bits*(i+1):dist_bits*(i+2)]),
+            ]
+            aux = self.create_distance_rom()
+            m.Instance(aux, '%s_db_%d' % (aux.name, (i // 2)), par, con)
 
         # -----
 
@@ -251,8 +340,6 @@ class SAComponents:
         t_bits = 1 if t_bits == 0 else t_bits
         node_bits = c_bits
         lines = columns = int(sqrt(n_cells))
-        d_width = ceil(log2(lines+columns))
-        d_width += ceil(log2(n_neighbors))
         w_bits = t_bits+c_bits+node_bits+1
         dist_bits = c_bits + ceil(log2(n_neighbors*2))
 
@@ -300,8 +387,6 @@ class SAComponents:
         t_bits = 1 if t_bits == 0 else t_bits
         node_bits = c_bits
         lines = columns = int(sqrt(n_cells))
-        d_width = ceil(log2(lines+columns))
-        d_width += ceil(log2(n_neighbors))
         w_bits = t_bits+c_bits+node_bits+1
         dist_bits = c_bits + ceil(log2(n_neighbors*2))
 
@@ -345,8 +430,6 @@ class SAComponents:
         t_bits = 1 if t_bits == 0 else t_bits
         node_bits = c_bits
         lines = columns = int(sqrt(n_cells))
-        d_width = ceil(log2(lines+columns))
-        d_width += ceil(log2(n_neighbors))
         w_bits = t_bits+c_bits+node_bits+1
         dist_bits = c_bits + ceil(log2(n_neighbors*2))
 
@@ -389,8 +472,6 @@ class SAComponents:
         t_bits = 1 if t_bits == 0 else t_bits
         node_bits = c_bits
         lines = columns = int(sqrt(n_cells))
-        d_width = ceil(log2(lines+columns))
-        d_width += ceil(log2(n_neighbors))
         w_bits = t_bits+c_bits+node_bits+1
         dist_bits = c_bits + ceil(log2(n_neighbors*2))
 
@@ -431,8 +512,6 @@ class SAComponents:
         t_bits = 1 if t_bits == 0 else t_bits
         node_bits = c_bits
         lines = columns = int(sqrt(n_cells))
-        d_width = ceil(log2(lines+columns))
-        d_width += ceil(log2(n_neighbors))
         w_bits = t_bits+c_bits+node_bits+1
         dist_bits = c_bits + ceil(log2(n_neighbors*2))
 
@@ -477,8 +556,6 @@ class SAComponents:
         t_bits = 1 if t_bits == 0 else t_bits
         node_bits = c_bits
         lines = columns = int(sqrt(n_cells))
-        d_width = ceil(log2(lines+columns))
-        d_width += ceil(log2(n_neighbors))
         w_bits = t_bits+c_bits+node_bits+1
         dist_bits = c_bits + ceil(log2(n_neighbors*2))
 
@@ -522,8 +599,6 @@ class SAComponents:
         t_bits = 1 if t_bits == 0 else t_bits
         node_bits = c_bits
         lines = columns = int(sqrt(n_cells))
-        d_width = ceil(log2(lines+columns))
-        d_width += ceil(log2(n_neighbors))
         w_bits = t_bits+c_bits+node_bits+1
         dist_bits = c_bits + ceil(log2(n_neighbors*2))
 
