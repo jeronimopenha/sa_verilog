@@ -1,3 +1,4 @@
+from functools import cache
 import os
 from math import ceil, dist, log2, sqrt
 from veriloggen import *
@@ -272,8 +273,13 @@ class SAComponents:
         dvbc_out = m.OutputReg('dvbc_out', n_neighbors*dist_bits)
         # -----
 
+        cac = m.Wire('cac', c_bits)
+        cbc = m.Wire('cbc', c_bits)
         dvac_t = m.Wire('dvac_t', n_neighbors*dist_bits)
         dvbc_t = m.Wire('dvbc_t', n_neighbors*dist_bits)
+
+        cac.assign(ca_in)
+        cbc.assign(cb_in)
 
         m.Always(Posedge(clk))(
             idx_out(idx_in),
@@ -291,32 +297,32 @@ class SAComponents:
         for i in range(0, (n_neighbors//2)+1, 2):
             par = []
             con = [
-                ('opa0', ca_in),
+                ('opa0', cac),
                 ('opa1', cva_in[i*c_bits:c_bits*(i+1)]),
                 ('opav', cva_v_in[i]),
-                ('opb0', ca_in),
+                ('opb0', cac),
                 ('opb1', cva_in[c_bits*(i+1):c_bits*(i+2)]),
                 ('opbv', cva_v_in[i+1]),
                 ('da', dvac_t[i*dist_bits:dist_bits*(i+1)]),
                 ('db', dvac_t[dist_bits*(i+1):dist_bits*(i+2)]),
             ]
             aux = self.create_distance_rom()
-            m.Instance(aux, '%s_da_%d' % (aux.name, (i // 2)), par, con)
+            m.Instance(aux, '%s_dac_%d' % (aux.name, (i // 2)), par, con)
 
         for i in range(0, (n_neighbors//2)+1, 2):
             par = []
             con = [
-                ('opa0', cb_in),
+                ('opa0', cbc),
                 ('opa1', cvb_in[i*c_bits:c_bits*(i+1)]),
                 ('opav', cvb_v_in[i]),
-                ('opb0', cb_in),
+                ('opb0', cbc),
                 ('opb1', cvb_in[c_bits*(i+1):c_bits*(i+2)]),
                 ('opbv', cvb_v_in[i+1]),
                 ('da', dvbc_t[i*dist_bits:dist_bits*(i+1)]),
                 ('db', dvbc_t[dist_bits*(i+1):dist_bits*(i+2)]),
             ]
             aux = self.create_distance_rom()
-            m.Instance(aux, '%s_db_%d' % (aux.name, (i // 2)), par, con)
+            m.Instance(aux, '%s_dbc_%d' % (aux.name, (i // 2)), par, con)
 
         # -----
 
@@ -364,8 +370,71 @@ class SAComponents:
         dvbc_out = m.OutputReg('dvbc_out', n_neighbors//2*dist_bits)
         dvas_out = m.OutputReg('dvas_out', n_neighbors*dist_bits)
         dvbs_out = m.OutputReg('dvbs_out', n_neighbors*dist_bits)
-
         # -----
+
+        cas = m.Wire('cas', c_bits)
+        cbs = m.Wire('cbs', c_bits)
+        opva = m.Input('opva', c_bits*n_neighbors)
+        opvb = m.Input('opvb', c_bits*n_neighbors)
+        dvac_t = m.Wire('dvac_t', dvac_out.width)
+        dvbc_t = m.Wire('dvbc_t', dvbc_out.width)
+        dvas_t = m.Wire('dvas_t', n_neighbors*dist_bits)
+        dvbs_t = m.Wire('dvbs_t', n_neighbors*dist_bits)
+        cas.assign(cb_in)
+        cbs.assign(ca_in)
+
+        for i in range(0, (n_neighbors//2)+1, 2):
+            n = i // 2
+            dvac_t[n*dist_bits:dist_bits*(n+1)].assign(
+                dvac_in[i*dist_bits:dist_bits*(i+1)] + dvac_in[dist_bits*(i+1):dist_bits*(i+2)])
+
+        for i in range(0, (n_neighbors//2)+1, 2):
+            n = i // 2
+            dvbc_t[n*dist_bits:dist_bits*(n+1)].assign(
+                dvbc_in[i*dist_bits:dist_bits*(i+1)] + dvbc_in[dist_bits*(i+1):dist_bits*(i+2)])
+
+        for i in range(n_neighbors):
+            opva[i*c_bits:c_bits*(i+1)].assign(Mux(cva_in[i*c_bits:c_bits*(i+1)]
+                                                   == cas, cbs, cva_in[i*c_bits:c_bits*(i+1)]))
+
+        m.Always(Posedge(clk))(
+            idx_out(idx_in),
+            v_out(v_in),
+            dvac_out(dvac_t),
+            dvbc_out(dvbc_t),
+            dvas_out(dvas_t),
+            dvbs_out(dvbs_t),
+        )
+
+        for i in range(0, (n_neighbors//2)+1, 2):
+            par = []
+            con = [
+                ('opa0', cas),
+                ('opa1', opva[i*c_bits:c_bits*(i+1)]),
+                ('opav', cva_v_in[i]),
+                ('opb0', cas),
+                ('opb1', opva[c_bits*(i+1):c_bits*(i+2)]),
+                ('opbv', cva_v_in[i+1]),
+                ('da', dvas_t[i*dist_bits:dist_bits*(i+1)]),
+                ('db', dvas_t[dist_bits*(i+1):dist_bits*(i+2)]),
+            ]
+            aux = self.create_distance_rom()
+            m.Instance(aux, '%s_das_%d' % (aux.name, (i // 2)), par, con)
+
+        for i in range(0, (n_neighbors//2)+1, 2):
+            par = []
+            con = [
+                ('opa0', cbs),
+                ('opa1', opvb[i*c_bits:c_bits*(i+1)]),
+                ('opav', cvb_v_in[i]),
+                ('opb0', cbs),
+                ('opb1', opvb[c_bits*(i+1):c_bits*(i+2)]),
+                ('opbv', cvb_v_in[i+1]),
+                ('da', dvbs_t[i*dist_bits:dist_bits*(i+1)]),
+                ('db', dvbs_t[dist_bits*(i+1):dist_bits*(i+2)]),
+            ]
+            aux = self.create_distance_rom()
+            m.Instance(aux, '%s_dbs_%d' % (aux.name, (i // 2)), par, con)
 
         initialize_regs(m)
         self.cache[name] = m
@@ -407,8 +476,34 @@ class SAComponents:
         dvbc_out = m.OutputReg('dvbc_out', dist_bits)
         dvas_out = m.OutputReg('dvas_out', n_neighbors//2*dist_bits)
         dvbs_out = m.OutputReg('dvbs_out', n_neighbors//2*dist_bits)
-
         # -----
+
+        dvac_t = m.Wire('dvac_t', dvac_out.width)
+        dvbc_t = m.Wire('dvbc_t', dvbc_out.width)
+        dvas_t = m.Wire('dvas_t', dvas_out.width)
+        dvbs_t = m.Wire('dvbs_t', dvbs_out.width)
+
+        dvac_t.assign(dvac_in[0:dist_bits] + dvac_in[dist_bits:dist_bits*2])
+        dvbc_t.assign(dvbc_in[0:dist_bits] + dvbc_in[dist_bits:dist_bits*2])
+
+        for i in range(0, (n_neighbors//2)+1, 2):
+            n = i // 2
+            dvas_t[n*dist_bits:dist_bits*(n+1)].assign(
+                dvas_in[i*dist_bits:dist_bits*(i+1)] + dvas_in[dist_bits*(i+1):dist_bits*(i+2)])
+
+        for i in range(0, (n_neighbors//2)+1, 2):
+            n = i // 2
+            dvbs_t[n*dist_bits:dist_bits*(n+1)].assign(
+                dvbs_in[i*dist_bits:dist_bits*(i+1)] + dvbs_in[dist_bits*(i+1):dist_bits*(i+2)])
+
+        m.Always(Posedge(clk))(
+            idx_out(idx_in),
+            v_out(v_in),
+            dvac_out(dvac_t),
+            dvbc_out(dvbc_t),
+            dvas_out(dvas_t),
+            dvbs_out(dvbs_t),
+        )
 
         initialize_regs(m)
         self.cache[name] = m
@@ -449,8 +544,23 @@ class SAComponents:
         dc_out = m.OutputReg('dc_out', dist_bits)
         dvas_out = m.OutputReg('dvas_out', dist_bits)
         dvbs_out = m.OutputReg('dvbs_out', dist_bits)
-
         # -----
+
+        dc_t = m.Wire('dc_t', dc_out.width)
+        dvas_t = m.Wire('dvas_t', dvas_out.width)
+        dvbs_t = m.Wire('dvbs_t', dvbs_out.width)
+
+        dc_t.assign(dvac_in + dvbc_in)
+        dvas_t.assign(dvas_in[0:dist_bits] + dvas_in[dist_bits:dist_bits*2])
+        dvbs_t.assign(dvbs_in[0:dist_bits] + dvbs_in[dist_bits:dist_bits*2])
+
+        m.Always(Posedge(clk))(
+            idx_out(idx_in),
+            v_out(v_in),
+            dc_out(dc_t),
+            dvas_out(dvas_t),
+            dvbs_out(dvbs_t),
+        )
 
         initialize_regs(m)
         self.cache[name] = m
@@ -489,8 +599,18 @@ class SAComponents:
         v_out = m.OutputReg('v_out')
         dc_out = m.OutputReg('dc_out', dist_bits)
         ds_out = m.OutputReg('ds_out', dist_bits)
-
         # -----
+
+        ds_t = m.Wire('ds_t', ds_out.width)
+
+        ds_t.assign(dvas_in + dvbs_in)
+
+        m.Always(Posedge(clk))(
+            idx_out(idx_in),
+            v_out(v_in),
+            dc_out(dc_in),
+            ds_out(ds_t),
+        )
 
         initialize_regs(m)
         self.cache[name] = m
@@ -527,13 +647,15 @@ class SAComponents:
         idx_out = m.OutputReg('idx_out', t_bits)
         v_out = m.OutputReg('v_out')
         sw_out = m.OutputReg('sw_out')
-
         # -----
+
+        sw_t = m.Wire('sw_t')
+        sw_t.assign(ds_in < dc_in)
 
         m.Always(Posedge(clk))(
             idx_out(idx_in),
             v_out(v_in),
-            sw_out(ds_in < dc_in)
+            sw_out(sw_t)
         )
 
         initialize_regs(m)
