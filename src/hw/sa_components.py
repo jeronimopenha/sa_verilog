@@ -1,4 +1,3 @@
-from functools import cache
 import os
 from math import ceil, dist, log2, sqrt
 from veriloggen import *
@@ -21,6 +20,50 @@ class SAComponents:
         self.align_bits = align_bits
         self.n_threads = n_threads
         self.cache = {}
+
+    def create_memory_2r_1w(self, width, depth) -> Module:
+        name = "mem_2r_1w_width%d_depth%d" % (width, depth)
+        if name in self.cache.keys():
+            return self.cache[name]
+
+        m = Module(name)
+        init_file = m.Parameter('init_file', 'mem_file.txt')
+
+        clk = m.Input("clk")
+        #rd = m.Input("rd")
+        rd_addr0 = m.Input("rd_addr0", depth)
+        rd_addr1 = m.Input("rd_addr1", depth)
+        out0 = m.Output("out0", width)
+        out1 = m.Output("out1", width)
+
+        wr = m.Input("wr")
+        wr_addr = m.Input("wr_addr", depth)
+        wr_data = m.Input("wr_data", width)
+
+        mem = m.Reg("mem", width, Power(2, depth))
+
+        out0.assign(mem[rd_addr0])
+        out1.assign(mem[rd_addr1])
+
+        m.Always(Posedge(clk))(
+            If(wr)(
+                mem[wr_addr](wr_data)
+            ),
+        )
+
+        m.EmbeddedCode('//synthesis translate_off')
+        i = m.Integer('i')
+        m.Initial(
+            out0(0),
+            out1(0),
+            For(i(0), i < Power(2, depth), i.inc())(
+                mem[i](0)
+            ),
+            Systask('readmemh', init_file, mem)
+        )
+        m.EmbeddedCode('//synthesis translate_on')
+        self.cache[name] = m
+        return m
 
     def create_distance_rom(self) -> Module:
         # manhattan
@@ -141,6 +184,7 @@ class SAComponents:
         lines = columns = int(sqrt(n_cells))
         w_bits = t_bits+c_bits+node_bits+1
         dist_bits = c_bits + ceil(log2(n_neighbors*2))
+        m_n_bits = (node_bits*n_neighbors) + n_neighbors
 
         m = Module(name)
         clk = m.Input('clk')
@@ -174,7 +218,16 @@ class SAComponents:
         wa_out = m.OutputReg('wa_out', w_bits)
         wb_out = m.OutputReg('wb_out', w_bits)
 
-        
+        mem_out0 = m.Wire('mem_out0', m_n_bits)
+        mem_out1 = m.Wire('mem_out1', m_n_bits)
+        va_r = m.Wire('va_r', node_bits*n_neighbors)
+        va_v_r = m.Wire('va_v_r', n_neighbors)
+        vb_r = m.Wire('vb_r', node_bits*n_neighbors)
+        vb_v_r = m.Wire('vb_v_r', n_neighbors)
+
+        for i in range(n_neighbors):
+            va_r[i*node_bits:node_bits *
+                 (i+1)].assign(mem_out0[i*(node_bits+1):node_bits*(i+1)])
 
         m.Always(Posedge(clk))(
             idx_out(idx_in),
@@ -188,11 +241,25 @@ class SAComponents:
             sw_out(sw_in),
             wa_out(wa_in),
             wb_out(wb_in),
-            va_out(),
-            va_v_out(),
-            vb_out(),
-            vb_v_out()
+            va_out(va_r),
+            va_v_out(va_v_r),
+            vb_out(vb_r),
+            vb_v_out(vb_v_r)
         )
+
+        par = []
+        con = [
+            ('clk', clk),
+            ('rd_addr0', ca_in),
+            ('rd_addr1', cb_in),
+            ('out0', mem_out0),
+            ('out1', mem_out1),
+            ('wr', 0),
+            ('wr_addr', 0),
+            ('wr_data', 0),
+        ]
+        aux = self.create_memory_2r_1w(m_n_bits, t_bits+c_bits)
+        m.Instance(aux, aux.name, par, con)
 
         initialize_regs(m)
         self.cache[name] = m
