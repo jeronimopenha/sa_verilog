@@ -218,8 +218,8 @@ class SAComponents:
         wa_out = m.OutputReg('wa_out', w_bits)
         wb_out = m.OutputReg('wb_out', w_bits)
 
-        mem_out0 = m.Wire('mem_out0', m_n_bits)
-        mem_out1 = m.Wire('mem_out1', m_n_bits)
+        mem_out0 = m.Wire('mem_out0', m_n_bits, n_neighbors)
+        mem_out1 = m.Wire('mem_out1', m_n_bits, n_neighbors)
         va_r = m.Wire('va_r', node_bits*n_neighbors)
         va_v_r = m.Wire('va_v_r', n_neighbors)
         vb_r = m.Wire('vb_r', node_bits*n_neighbors)
@@ -234,7 +234,6 @@ class SAComponents:
             vb_r[i*node_bits:node_bits *
                  (i+1)].assign(mem_out1[i*(node_bits+1):i*(node_bits+1) + node_bits])
             vb_v_r[i].assign(mem_out1[i*(node_bits+1)+node_bits])
-
 
         m.Always(Posedge(clk))(
             idx_out(idx_in),
@@ -323,8 +322,19 @@ class SAComponents:
         wb_out = m.OutputReg('wb_out', w_bits)
         # -----
 
+        cva_t = m.Wire('cva_t', c_bits*n_neighbors)
+        cvb_t = m.Wire('cvb_t', c_bits*n_neighbors)
+
         m.Always(Posedge(clk))(
-            
+            idx_out(idx_in),
+            v_out(v_in),
+            ca_out(ca_in),
+            cb_out(cb_in),
+            cva_out(cva_t),
+            cva_v_out(va_v_in),
+            cvb_out(cvb_t),
+            cvb_v_out(vb_v_in),
+            wb_out(wb_in)
         )
 
         par = []
