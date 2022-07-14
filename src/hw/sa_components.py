@@ -227,7 +227,14 @@ class SAComponents:
 
         for i in range(n_neighbors):
             va_r[i*node_bits:node_bits *
-                 (i+1)].assign(mem_out0[i*(node_bits+1):node_bits*(i+1)])
+                 (i+1)].assign(mem_out0[i*(node_bits+1):i*(node_bits+1) + node_bits])
+            va_v_r[i].assign(mem_out0[i*(node_bits+1)+node_bits])
+
+        for i in range(n_neighbors):
+            vb_r[i*node_bits:node_bits *
+                 (i+1)].assign(mem_out1[i*(node_bits+1):i*(node_bits+1) + node_bits])
+            vb_v_r[i].assign(mem_out1[i*(node_bits+1)+node_bits])
+
 
         m.Always(Posedge(clk))(
             idx_out(idx_in),
@@ -314,6 +321,25 @@ class SAComponents:
         cvb_out = m.OutputReg('cvb_out', c_bits*n_neighbors)
         cvb_v_out = m.OutputReg('cvb_v_out', n_neighbors)
         wb_out = m.OutputReg('wb_out', w_bits)
+        # -----
+
+        m.Always(Posedge(clk))(
+            
+        )
+
+        par = []
+        con = [
+            ('clk', clk),
+            ('rd_addr0', ca_in),
+            ('rd_addr1', cb_in),
+            ('out0', mem_out0),
+            ('out1', mem_out1),
+            ('wr', 0),
+            ('wr_addr', 0),
+            ('wr_data', 0),
+        ]
+        aux = self.create_memory_2r_1w(m_n_bits, t_bits+c_bits)
+        m.Instance(aux, aux.name, par, con)
 
         initialize_regs(m)
         self.cache[name] = m
