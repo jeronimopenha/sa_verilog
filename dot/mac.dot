@@ -13,7 +13,7 @@ digraph "G" {
     fontsize = "10",
     fontname = "Verdana",
   ];
-  "mul0";
+  "mul0" [label="0"];
   "const1";
   "load2";
   "mul3";

@@ -32,8 +32,8 @@ class St1:
         }
         self.output = self.output_new.copy()
         # for i in range(self.n_threads):
-        for i in range(self.n_threads):
-            self.print_matrix(i)
+        #for i in range(self.n_threads):
+        self.print_matrix(0)
 
     # TODO update logic
     def execute(self, _in: dict(), _sw: dict(), _wb: dict()):
@@ -71,8 +71,8 @@ class St1:
             else:
                 self.c2n[uwb['idx']][uwb['c']] = uwb['n']
                 self.flag = not self.flag
-                #if(uwb['idx'] == 0):
-                self.print_matrix(uwb['idx'])
+                if(uwb['idx'] == 0):
+                    self.print_matrix(uwb['idx'])
 
         # fifos outptuts ready to be moved forward
         self.output_new['wa'] = wa
