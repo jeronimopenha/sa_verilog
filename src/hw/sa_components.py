@@ -73,6 +73,9 @@ class SAComponents:
         self.cache[name] = m
         return m
 
+    def creatr_threads_controller(self) -> Module:
+        pass
+
     def create_st1_c2n(self) -> Module:
         sa_graph = self.sa_graph
         n_cells = self.sa_graph.n_cells
@@ -170,6 +173,26 @@ class SAComponents:
         sw_out = m.OutputReg('sw_out')
         wa_out = m.OutputReg('wa_out', w_bits)
         wb_out = m.OutputReg('wb_out', w_bits)
+
+        
+
+        m.Always(Posedge(clk))(
+            idx_out(idx_in),
+            v_out(v_in),
+            ca_out(ca_in),
+            cb_out(cb_in),
+            na_out(na_in),
+            na_v_out(na_v_in),
+            nb_out(nb_in),
+            nb_v_out(nb_v_in),
+            sw_out(sw_in),
+            wa_out(wa_in),
+            wb_out(wb_in),
+            va_out(),
+            va_v_out(),
+            vb_out(),
+            vb_v_out()
+        )
 
         initialize_regs(m)
         self.cache[name] = m
