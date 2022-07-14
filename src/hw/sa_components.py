@@ -1,5 +1,6 @@
 import os
 from math import ceil, dist, log2, sqrt
+from traceback import walk_tb
 from veriloggen import *
 from src.utils.util import initialize_regs, SaGraph
 
@@ -30,7 +31,7 @@ class SAComponents:
         init_file = m.Parameter('init_file', 'mem_file.txt')
 
         clk = m.Input("clk")
-        #rd = m.Input("rd")
+        # rd = m.Input("rd")
         rd_addr0 = m.Input("rd_addr0", depth)
         rd_addr1 = m.Input("rd_addr1", depth)
         out0 = m.Output("out0", width)
@@ -62,6 +63,108 @@ class SAComponents:
             Systask('readmemh', init_file, mem)
         )
         m.EmbeddedCode('//synthesis translate_on')
+        self.cache[name] = m
+        return m
+
+    def create_fifo(self):
+        name = 'fifo'
+        if name in self.cache.keys():
+            return self.cache[name]
+        m = Module(name)
+        FIFO_WIDTH = m.Parameter('FIFO_WIDTH', 32)
+        FIFO_DEPTH_BITS = m.Parameter('FIFO_DEPTH_BITS', 8)
+        FIFO_ALMOSTFULL_THRESHOLD = m.Parameter(
+            'FIFO_ALMOSTFULL_THRESHOLD', Power(2, FIFO_DEPTH_BITS) - 4)
+        FIFO_ALMOSTEMPTY_THRESHOLD = m.Parameter(
+            'FIFO_ALMOSTEMPTY_THRESHOLD', 4)
+
+        clk = m.Input('clk')
+        rst = m.Input('rst')
+        write_enable = m.Input('write_enable')
+        input_data = m.Input('input_data', FIFO_WIDTH)
+        output_read_enable = m.Input('output_read_enable')
+        output_valid = m.OutputReg('output_valid')
+        output_data = m.OutputReg('output_data', FIFO_WIDTH)
+        empty = m.OutputReg('empty')
+        almostempty = m.OutputReg('almostempty')
+        full = m.OutputReg('full')
+        almostfull = m.OutputReg('almostfull')
+        data_count = m.OutputReg('data_count', FIFO_DEPTH_BITS + 1)
+
+        read_pointer = m.Reg('read_pointer', FIFO_DEPTH_BITS)
+        write_pointer = m.Reg('write_pointer', FIFO_DEPTH_BITS)
+        m.EmbeddedCode(
+            '(* ramstyle = "AUTO, no_rw_check" *) reg  [FIFO_WIDTH-1:0] mem[0:2**FIFO_DEPTH_BITS-1];')
+        m.EmbeddedCode("/*")
+        mem = m.Reg('mem', FIFO_WIDTH, Power(2, FIFO_DEPTH_BITS))
+        m.EmbeddedCode("*/")
+
+        m.Always(Posedge(clk))(
+            If(rst)(
+                empty(1),
+                almostempty(1),
+                full(0),
+                almostfull(0),
+                read_pointer(0),
+                write_pointer(0),
+                data_count(0)
+            ).Else(
+                Case(Cat(write_enable, output_read_enable))(
+                    When(3)(
+                        read_pointer(read_pointer + 1),
+                        write_pointer(write_pointer + 1),
+                    ),
+                    When(2)(
+                        If(~full)(
+                            write_pointer(write_pointer + 1),
+                            data_count(data_count + 1),
+                            empty(0),
+                            If(data_count == (FIFO_ALMOSTEMPTY_THRESHOLD - 1))(
+                                almostempty(0)
+                            ),
+                            If(data_count == Power(2, FIFO_DEPTH_BITS) - 1)(
+                                full(1)
+                            ),
+                            If(data_count == (FIFO_ALMOSTFULL_THRESHOLD - 1))(
+                                almostfull(1)
+                            )
+                        )
+
+                    ),
+                    When(1)(
+                        If(~empty)(
+                            read_pointer(read_pointer + 1),
+                            data_count(data_count - 1),
+                            full(0),
+                            If(data_count == FIFO_ALMOSTFULL_THRESHOLD)(
+                                almostfull(0)
+                            ),
+                            If(data_count == 1)(
+                                empty(1)
+                            ),
+                            If(data_count == FIFO_ALMOSTEMPTY_THRESHOLD)(
+                                almostempty(1)
+                            )
+
+                        )
+                    ),
+                )
+            )
+        )
+        m.Always(Posedge(clk))(
+            If(rst)(
+                output_valid(0)
+            ).Else(
+                output_valid(0),
+                If(write_enable == 1)(
+                    mem[write_pointer](input_data)
+                ),
+                If(output_read_enable == 1)(
+                    output_data(mem[read_pointer]),
+                    output_valid(1)
+                )
+            )
+        )
         self.cache[name] = m
         return m
 
@@ -116,8 +219,127 @@ class SAComponents:
         self.cache[name] = m
         return m
 
-    def creatr_threads_controller(self) -> Module:
-        pass
+    #TODO develop the controller
+    def create_threads_controller(self) -> Module:
+        sa_graph = self.sa_graph
+        n_cells = self.sa_graph.n_cells
+        n_neighbors = self.n_neighbors
+        align_bits = self.align_bits
+        n_threads = self.n_threads
+
+        name = "threads_controller_%dth_%dcells" % (n_threads, n_cells)
+        if name in self.cache.keys():
+            return self.cache[name]
+
+        c_bits = ceil(log2(n_cells))
+        m_width = c_bits * 2
+        t_bits = ceil(log2(n_threads))
+        t_bits = 1 if t_bits == 0 else t_bits
+
+        m = Module(name)
+
+        clk = m.Input("clk")
+        rst = m.Input("rst")
+        start = m.Input("start")
+        done = m.OutputReg("done")
+
+        th = m.Output("th", t_bits)
+        v = m.Output("v")
+        cell0 = m.Output("cell0", c_bits)
+        cell1 = m.Output("cell1", c_bits)
+
+        m_rd = m.Reg("m_rd")
+        m_rd_addr = m.Reg("m_rd_addr", t_bits)
+        m_out = m.Wire("m_out", m_width)
+        #m_wr = m.Reg("m_wr")
+        #m_wr_addr = m.Reg("m_wr_addr", t_bits)
+        #m_wr_data = m.Reg("m_wr_data", m_width)
+        #sum = m.Wire('sum', m_width)
+        init_mem = m.Reg("init_mem", n_threads)
+        # done_mem = m.Reg("done_mem", n_threads)
+
+        p_addr = m.Reg('p_addr', t_bits)
+        p_rd = m.Reg('p_rd')
+
+        cell1.assign(Mux(init_mem[p_addr], m_out[0:cell0.width], 0))
+        cell0.assign(Mux(init_mem[p_addr], m_out[cell0.width:m_out.width], 0))
+        v.assign(p_rd)
+        th.assign(p_addr)
+
+        m.Always(Posedge(clk))(
+            If(rst)(
+                done(0),
+            )  # .Else(
+            #    done(Uand(done_mem))
+            # ),
+        )
+
+        m.Always(Posedge(clk))(
+            If(rst)(
+                m_rd_addr(n_threads-1),
+                m_rd(0),
+                p_rd(0),
+                p_addr(0),
+            ).Elif(start)(
+                m_rd(1),
+                p_addr(m_rd_addr),
+                p_rd(m_rd),
+                If(m_rd_addr == n_threads - 1)(
+                    m_rd_addr(0),
+                ).Else(
+                    m_rd_addr.inc(),
+                ),
+            )
+        )
+
+        m.Always(Posedge(clk))(
+            If(rst)(
+                init_mem(0),
+                # done_mem(0),
+                # v(0),
+                # cell0(0),
+                # cell1(0),
+            ).Else(
+                # m_wr(p_rd),
+                If(p_rd)(
+                    If(init_mem[p_addr])(
+                        # cell0(m_out[0:cell0.width]),
+                        # cell1(m_out[cell0.width:m_out.width]),
+                        #m_wr_data(m_out + 1),
+                    ).Else(
+                        init_mem[p_addr](1),
+                        # cell0(1),
+                        # cell1(0),
+                        # m_wr_data(1),
+                    ),
+                    # If(m_out == (n_cells * n_cells)-2)(
+                    #    done_mem[p_addr](1),
+                    # ),
+                    # m_wr_addr(p_addr),
+                    # th(p_addr),
+                    #v(Mux(done_mem[p_addr], 0, 1)),
+                ),
+            )
+        )
+
+        par = []
+        con = [
+            ("clk", clk),
+            ("rd", m_rd),
+            ("rd_addr0", m_rd_addr),
+            ("out0", m_out),
+            ("wr", p_rd),
+            ("wr_addr", p_addr),
+            ("wr_data", Mux(init_mem[p_addr],
+             m_out+Int(1, m_out.width, 2), Int(1, m_out.width, 2))),
+        ]
+        aux = self.create_memory_2r_1w(m_width, t_bits)
+        m.Instance(aux, aux.name, par, con)
+
+        initialize_regs(m)
+
+        self.cache[name] = m
+        return m
 
     def create_st1_c2n(self) -> Module:
         sa_graph = self.sa_graph
@@ -140,6 +362,7 @@ class SAComponents:
 
         m = Module(name)
         clk = m.Input('clk')
+        rst = m.Input('rst')
 
         # interface
         idx_in = m.Input('idx_in', t_bits)
@@ -149,6 +372,7 @@ class SAComponents:
         sw_in = m.Input('sw_in')
         st1_wb_in = m.Input('st1_wb_in', w_bits)
 
+        rdy = m.OutputReg('rdy')
         idx_out = m.OutputReg('idx_out', t_bits)
         v_out = m.OutputReg('v_out')
         ca_out = m.OutputReg('ca_out', c_bits)
@@ -161,6 +385,164 @@ class SAComponents:
         wa_out = m.OutputReg('wa_out', w_bits)
         wb_out = m.OutputReg('wb_out', w_bits)
         # -----
+
+        flag = m.Reg('flag')
+        counter = m.Reg('counter', ceil(log2(n_threads)+1))
+        fifo_init = m.Reg('fifo_init')
+
+        na_t = m.Wire('na_t', node_bits)
+        na_v_t = m.Wire('na_v_t')
+        nb_t = m.Wire('nb_t', node_bits)
+        nb_v_t = m.Wire('nb_v_t')
+
+        wa_t = m.Wire('wa_t', w_bits)
+        wb_t = m.Wire('wb_t', w_bits)
+
+        fifoa_wr_en = m.Wire('fifoa_wr_en')
+        fifoa_rd_en = m.Wire('fifoa_rd_en')
+        fifoa_data = m.Wire('fifoa_data', w_bits)
+        fifob_wr_en = m.Wire('fifob_wr_en')
+        fifob_rd_en = m.Wire('fifob_rd_en')
+        fifob_data = m.Wire('fifob_data', w_bits)
+
+        wa_idx = m.Wire('wa_idx', t_bits)
+        wa_c = m.Wire('wa_c', c_bits)
+        wa_n = m.Wire('wa_n', node_bits)
+        wa_n_v = m.Wire('wa_n_v')
+
+        wb_idx = m.Wire('wb_idx', t_bits)
+        wb_c = m.Wire('wb_c', c_bits)
+        wb_n = m.Wire('wb_n', node_bits)
+        wb_n_v = m.Wire('wb_n_v')
+
+        m_wr = m.Wire('m_wr')
+        m_wr_addr = m.Wire('m_wr_addr', c_bits+t_bits)
+        m_wr_data = m.Wire('m_wr_data', c_bits)
+
+        fifoa_data.assign(Cat(idx_in, ca_in, nb_v_t, nb_t))
+        fifob_data.assign(Cat(idx_in, cb_in, na_v_t, na_t))
+        fifoa_rd_en.assign(Uand(Cat(rdy, v_in)))
+        fifob_rd_en.assign(Uand(Cat(rdy, v_in)))
+        fifoa_wr_en.assign(Uor(Cat(Uand(Cat(rdy, v_in)), fifo_init)))
+        fifob_wr_en.assign(Uor(Cat(Uand(Cat(rdy, v_in)), fifo_init)))
+
+        i = 0
+        wa_n.assign(wa_t[i:node_bits])
+        i += node_bits
+        wa_n_v.assign(wa_t[i])
+        i += 1
+        wa_c.assign(wa_t[i:c_bits+i])
+        i += c_bits
+        wa_idx.assign(wa_t[i:t_bits+i])
+
+        i = 0
+        wb_n.assign(st1_wb_in[i:node_bits])
+        i += node_bits
+        wb_n_v.assign(st1_wb_in[i])
+        i += 1
+        wb_c.assign(st1_wb_in[i:c_bits+i])
+        i += c_bits
+        wb_idx.assign(st1_wb_in[i:t_bits+i])
+
+        m_wr.assign(sw_in)
+        m_wr_addr.assign(Mux(flag, Cat(wa_idx, wa_c), Cat(wb_idx, wb_c)))
+        m_wr_data.assign(Mux(flag, Cat(wa_n_v, wa_n), Cat(wb_n_v, wb_n)))
+
+        m.Always(Posedge(clk))(
+            idx_out(idx_in),
+            v_out(v_in),
+            ca_out(ca_in),
+            cb_out(cb_in),
+            na_out(na_t),
+            na_v_out(na_v_t),
+            nb_out(nb_t),
+            nb_v_out(nb_v_t),
+            sw_out(sw_in),
+            wa_out(wa_t),
+            wb_out(wb_t)
+        )
+
+        m.Always(Posedge(clk))(
+            If(rst)(
+                flag(1)
+            ).Else(
+                If(sw_in)(
+                    flag(~flag)
+                )
+            )
+        )
+
+        m.Always(Posedge(clk))(
+            If(rst)(
+                rdy(0),
+                fifo_init(0),
+                counter(0),
+            ).Else(
+                If(counter == n_threads-2-1)(
+                    rdy(1),
+                    fifo_init(0),
+                ).Else(
+                    counter.inc(),
+                    fifo_init(1),
+                ),
+            )
+        )
+
+        par = []
+        con = [
+            ('clk', clk),
+            ('rd_addr0', ca_in),
+            ('rd_addr1', cb_in),
+            ('out0', Cat(na_v_t, na_t)),
+            ('out1', Cat(nb_v_t, nb_t)),
+            ('wr', m_wr),
+            ('wr_addr', m_wr_addr),
+            ('wr_data', m_wr_data),
+        ]
+        aux = self.create_memory_2r_1w(node_bits+1, t_bits+c_bits)
+        m.Instance(aux, aux.name, par, con)
+
+        par = [
+            ('FIFO_WIDTH', w_bits),
+            ('FIFO_DEPTH_BITS', 3),
+        ]
+        con = [
+            ('clk', clk),
+            ('rst', rst),
+            ('write_enable', fifoa_wr_en),
+            ('input_data', fifoa_data),
+            ('output_read_enable', fifoa_rd_en),
+            # ('output_valid',),
+            ('output_data', wa_t),
+            # ('empty',),
+            # ('almostempty',),
+            # ('full',),
+            # ('almostfull',),
+            # ('data_count',),
+        ]
+        aux = self.create_fifo()
+        m.Instance(aux, "%s_a" % aux.name, par, con)
+
+        par = [
+            ('FIFO_WIDTH', w_bits),
+            ('FIFO_DEPTH_BITS', 3),
+        ]
+        con = [
+            ('clk', clk),
+            ('rst', rst),
+            ('write_enable', fifob_wr_en),
+            ('input_data', fifob_data),
+            ('output_read_enable', fifob_rd_en),
+            # ('output_valid',),
+            ('output_data', wb_t),
+            # ('empty',),
+            # ('almostempty',),
+            # ('full',),
+            # ('almostfull',),
+            # ('data_count',),
+        ]
+        aux = self.create_fifo()
+        m.Instance(aux, "%s_b" % aux.name, par, con)
 
         initialize_regs(m)
         self.cache[name] = m
@@ -218,22 +600,15 @@ class SAComponents:
         wa_out = m.OutputReg('wa_out', w_bits)
         wb_out = m.OutputReg('wb_out', w_bits)
 
-        mem_out0 = m.Wire('mem_out0', m_n_bits, n_neighbors)
-        mem_out1 = m.Wire('mem_out1', m_n_bits, n_neighbors)
-        va_r = m.Wire('va_r', node_bits*n_neighbors)
-        va_v_r = m.Wire('va_v_r', n_neighbors)
-        vb_r = m.Wire('vb_r', node_bits*n_neighbors)
-        vb_v_r = m.Wire('vb_v_r', n_neighbors)
+        va_t = m.Wire('va_t', node_bits*n_neighbors)
+        va_v_t = m.Wire('va_v_t', n_neighbors)
+        va_v_m = m.Wire('va_v_m', n_neighbors)
+        vb_t = m.Wire('vb_t', node_bits*n_neighbors)
+        vb_v_t = m.Wire('vb_v_t', n_neighbors)
+        vb_v_m = m.Wire('vb_v_m', n_neighbors)
 
-        for i in range(n_neighbors):
-            va_r[i*node_bits:node_bits *
-                 (i+1)].assign(mem_out0[i*(node_bits+1):i*(node_bits+1) + node_bits])
-            va_v_r[i].assign(mem_out0[i*(node_bits+1)+node_bits])
-
-        for i in range(n_neighbors):
-            vb_r[i*node_bits:node_bits *
-                 (i+1)].assign(mem_out1[i*(node_bits+1):i*(node_bits+1) + node_bits])
-            vb_v_r[i].assign(mem_out1[i*(node_bits+1)+node_bits])
+        va_v_t.assign(Mux(na_v_in, va_v_m, Int(0, n_neighbors, 2)))
+        vb_v_t.assign(Mux(nb_v_in, vb_v_m, Int(0, n_neighbors, 2)))
 
         m.Always(Posedge(clk))(
             idx_out(idx_in),
@@ -247,25 +622,26 @@ class SAComponents:
             sw_out(sw_in),
             wa_out(wa_in),
             wb_out(wb_in),
-            va_out(va_r),
-            va_v_out(va_v_r),
-            vb_out(vb_r),
-            vb_v_out(vb_v_r)
+            va_out(va_t),
+            va_v_out(va_v_t),
+            vb_out(vb_t),
+            vb_v_out(vb_v_t)
         )
 
-        par = []
-        con = [
-            ('clk', clk),
-            ('rd_addr0', ca_in),
-            ('rd_addr1', cb_in),
-            ('out0', mem_out0),
-            ('out1', mem_out1),
-            ('wr', 0),
-            ('wr_addr', 0),
-            ('wr_data', 0),
-        ]
-        aux = self.create_memory_2r_1w(m_n_bits, t_bits+c_bits)
-        m.Instance(aux, aux.name, par, con)
+        for i in range(n_neighbors):
+            par = []
+            con = [
+                ('clk', clk),
+                ('rd_addr0', na_in),
+                ('rd_addr1', nb_in),
+                ('out0', Cat(va_v_m[i], va_t[node_bits*i:node_bits*(i+1)])),
+                ('out1', Cat(vb_v_m[i], vb_t[node_bits*i:node_bits*(i+1)])),
+                ('wr', 0),
+                ('wr_addr', 0),
+                ('wr_data', 0),
+            ]
+            aux = self.create_memory_2r_1w(node_bits+1, t_bits+c_bits)
+            m.Instance(aux, "%s_%i" % (aux.name, i), par, con)
 
         initialize_regs(m)
         self.cache[name] = m
@@ -292,6 +668,7 @@ class SAComponents:
 
         m = Module(name)
         clk = m.Input('clk')
+        rst = m.Input('rst')
 
         # interface
         idx_in = m.Input('idx_in', t_bits)
@@ -322,8 +699,45 @@ class SAComponents:
         wb_out = m.OutputReg('wb_out', w_bits)
         # -----
 
+        flag = m.Reg('flag')
         cva_t = m.Wire('cva_t', c_bits*n_neighbors)
         cvb_t = m.Wire('cvb_t', c_bits*n_neighbors)
+
+        wa_idx = m.Wire('wa_idx', t_bits)
+        wa_c = m.Wire('wa_c', c_bits)
+        wa_n = m.Wire('wa_n', node_bits)
+        wa_n_v = m.Wire('wa_n_v')
+        wb_idx = m.Wire('wb_idx', t_bits)
+        wb_c = m.Wire('wb_c', c_bits)
+        wb_n = m.Wire('wb_n', node_bits)
+        wb_n_v = m.Wire('wb_n_v')
+
+        m_wr = m.Wire('m_wr')
+        m_wr_addr = m.Wire('m_wr_addr', c_bits+t_bits)
+        m_wr_data = m.Wire('m_wr_data', c_bits)
+
+        i = 0
+        wa_n.assign(wa_in[i:node_bits])
+        i += node_bits
+        wa_n_v.assign(wa_in[i])
+        i += 1
+        wa_c.assign(wa_in[i:c_bits+i])
+        i += c_bits
+        wa_idx.assign(wa_in[i:t_bits+i])
+
+        i = 0
+        wb_n.assign(st3_wb_in[i:node_bits])
+        i += node_bits
+        wb_n_v.assign(st3_wb_in[i])
+        i += 1
+        wb_c.assign(st3_wb_in[i:c_bits+i])
+        i += c_bits
+        wb_idx.assign(st3_wb_in[i:t_bits+i])
+
+        m_wr.assign(Mux(flag, Uand(Cat(sw_in, wa_n_v)),
+                    Uand(Cat(sw_in, wb_n_v))))
+        m_wr_addr.assign(Mux(flag, Cat(wa_idx, wa_n), Cat(wb_idx, wb_n)))
+        m_wr_data.assign(Mux(flag, wa_c, wb_c))
 
         m.Always(Posedge(clk))(
             idx_out(idx_in),
@@ -337,19 +751,30 @@ class SAComponents:
             wb_out(wb_in)
         )
 
-        par = []
-        con = [
-            ('clk', clk),
-            ('rd_addr0', ca_in),
-            ('rd_addr1', cb_in),
-            ('out0', mem_out0),
-            ('out1', mem_out1),
-            ('wr', 0),
-            ('wr_addr', 0),
-            ('wr_data', 0),
-        ]
-        aux = self.create_memory_2r_1w(m_n_bits, t_bits+c_bits)
-        m.Instance(aux, aux.name, par, con)
+        m.Always(Posedge(clk))(
+            If(rst)(
+                flag(1)
+            ).Else(
+                If(sw_in)(
+                    flag(~flag)
+                )
+            )
+        )
+
+        for i in range(n_neighbors):
+            par = []
+            con = [
+                ('clk', clk),
+                ('rd_addr0', va_in[i*c_bits:c_bits*(i+1)]),
+                ('rd_addr1', vb_in[i*c_bits:c_bits*(i+1)]),
+                ('out0', cva_t[i*c_bits:c_bits*(i+1)]),
+                ('out1', cvb_t[i*c_bits:c_bits*(i+1)]),
+                ('wr', m_wr),
+                ('wr_addr', m_wr_addr),
+                ('wr_data', m_wr_data),
+            ]
+            aux = self.create_memory_2r_1w(c_bits, t_bits+c_bits)
+            m.Instance(aux, "%s_%d" % (aux.name, i), par, con)
 
         initialize_regs(m)
         self.cache[name] = m
@@ -858,6 +1283,8 @@ class SAComponents:
         start = m.Input('start')
         m.EmbeddedCode('// -----')
 
+        pipe_start = m.Wire('pipe_start')
+
         # Threads controller output wires
         m.EmbeddedCode('// Threads controller output wires')
         th_idx = m.Wire('th_idx', t_bits)
@@ -869,6 +1296,7 @@ class SAComponents:
 
         # st1 output wires
         m.EmbeddedCode('// st1 output wires')
+        st1_rdy = m.Wire('st1_rdy')
         st1_idx = m.Wire('st1_idx', t_bits)
         st1_v = m.Wire('st1_v')
         st1_ca = m.Wire('st1_ca', c_bits)
@@ -987,10 +1415,14 @@ class SAComponents:
         m.EmbeddedCode('// -----')
         # -----
 
+        pipe_start.assign(Uand(Cat(start, st1_rdy)))
+
         # modules instantiations
         par = []
         con = [
             ('clk', clk),
+            ('rst', rst),
+            ('rdy', st1_rdy),
             ('idx_in', th_idx),
             ('v_in', th_v),
             ('ca_in', th_ca),
@@ -1048,6 +1480,7 @@ class SAComponents:
         pa = []
         con = [
             ('clk', clk),
+            ('rst', rst),
             ('idx_in', st2_idx),
             ('v_in', st2_v),
             ('ca_in', st2_ca),
