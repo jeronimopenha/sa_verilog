@@ -23,25 +23,25 @@ class SAComponents:
         self.cache = {}
 
     def create_memory_2r_1w(self, width, depth) -> Module:
-        name = "mem_2r_1w_width%d_depth%d" % (width, depth)
+        name = 'mem_2r_1w_width%d_depth%d' % (width, depth)
         if name in self.cache.keys():
             return self.cache[name]
 
         m = Module(name)
         init_file = m.Parameter('init_file', 'mem_file.txt')
 
-        clk = m.Input("clk")
-        # rd = m.Input("rd")
-        rd_addr0 = m.Input("rd_addr0", depth)
-        rd_addr1 = m.Input("rd_addr1", depth)
-        out0 = m.Output("out0", width)
-        out1 = m.Output("out1", width)
+        clk = m.Input('clk')
+        # rd = m.Input('rd')
+        rd_addr0 = m.Input('rd_addr0', depth)
+        rd_addr1 = m.Input('rd_addr1', depth)
+        out0 = m.Output('out0', width)
+        out1 = m.Output('out1', width)
 
-        wr = m.Input("wr")
-        wr_addr = m.Input("wr_addr", depth)
-        wr_data = m.Input("wr_data", width)
+        wr = m.Input('wr')
+        wr_addr = m.Input('wr_addr', depth)
+        wr_data = m.Input('wr_data', width)
 
-        mem = m.Reg("mem", width, Power(2, depth))
+        mem = m.Reg('mem', width, Power(2, depth))
 
         out0.assign(mem[rd_addr0])
         out1.assign(mem[rd_addr1])
@@ -52,7 +52,7 @@ class SAComponents:
             ),
         )
 
-        m.EmbeddedCode('//synthesis translate_off')
+        '''m.EmbeddedCode('//synthesis translate_off')
         i = m.Integer('i')
         m.Initial(
             out0(0),
@@ -62,7 +62,7 @@ class SAComponents:
             ),
             Systask('readmemh', init_file, mem)
         )
-        m.EmbeddedCode('//synthesis translate_on')
+        m.EmbeddedCode('//synthesis translate_on')'''
         self.cache[name] = m
         return m
 
@@ -94,10 +94,10 @@ class SAComponents:
         read_pointer = m.Reg('read_pointer', FIFO_DEPTH_BITS)
         write_pointer = m.Reg('write_pointer', FIFO_DEPTH_BITS)
         m.EmbeddedCode(
-            '(* ramstyle = "AUTO, no_rw_check" *) reg  [FIFO_WIDTH-1:0] mem[0:2**FIFO_DEPTH_BITS-1];')
-        m.EmbeddedCode("/*")
+            "(* ramstyle = 'AUTO, no_rw_check' *) reg  [FIFO_WIDTH-1:0] mem[0:2**FIFO_DEPTH_BITS-1];")
+        m.EmbeddedCode('/*')
         mem = m.Reg('mem', FIFO_WIDTH, Power(2, FIFO_DEPTH_BITS))
-        m.EmbeddedCode("*/")
+        m.EmbeddedCode('*/')
 
         m.Always(Posedge(clk))(
             If(rst)(
@@ -219,7 +219,6 @@ class SAComponents:
         self.cache[name] = m
         return m
 
-    #TODO develop the controller
     def create_threads_controller(self) -> Module:
         sa_graph = self.sa_graph
         n_cells = self.sa_graph.n_cells
@@ -227,113 +226,79 @@ class SAComponents:
         align_bits = self.align_bits
         n_threads = self.n_threads
 
-        name = "threads_controller_%dth_%dcells" % (n_threads, n_cells)
+        name = 'th_controller_%dth_%dcells' % (n_threads, n_cells)
         if name in self.cache.keys():
             return self.cache[name]
 
         c_bits = ceil(log2(n_cells))
-        m_width = c_bits * 2
         t_bits = ceil(log2(n_threads))
         t_bits = 1 if t_bits == 0 else t_bits
+        node_bits = c_bits
+        lines = columns = int(sqrt(n_cells))
+        w_bits = t_bits+c_bits+node_bits+1
+        dist_bits = c_bits + ceil(log2(n_neighbors*2))
 
         m = Module(name)
 
-        clk = m.Input("clk")
-        rst = m.Input("rst")
-        start = m.Input("start")
-        done = m.OutputReg("done")
+        clk = m.Input('clk')
+        rst = m.Input('rst')
+        start = m.Input('start')
 
-        th = m.Output("th", t_bits)
-        v = m.Output("v")
-        cell0 = m.Output("cell0", c_bits)
-        cell1 = m.Output("cell1", c_bits)
+        idx_out = m.OutputReg('idx_out', t_bits)
+        v_out = m.OutputReg('v_out')
+        ca_out = m.OutputReg('ca_out', c_bits)
+        cb_out = m.OutputReg('cb_out', c_bits)
 
-        m_rd = m.Reg("m_rd")
-        m_rd_addr = m.Reg("m_rd_addr", t_bits)
-        m_out = m.Wire("m_out", m_width)
-        #m_wr = m.Reg("m_wr")
-        #m_wr_addr = m.Reg("m_wr_addr", t_bits)
-        #m_wr_data = m.Reg("m_wr_data", m_width)
-        #sum = m.Wire('sum', m_width)
-        init_mem = m.Reg("init_mem", n_threads)
-        # done_mem = m.Reg("done_mem", n_threads)
+        flag_f_exec = m.Reg('flag_f_exec', n_threads)
+        v_r = m.Reg('v_r', n_threads)
+        idx_r = m.Reg('idx_r', t_bits)
+        counter = m.Wire('counter', c_bits*2)
+        counter_t = m.Wire('counter_t', c_bits*2)
+        counter_wr = m.Wire('counter_wr', c_bits*2)
+        ca_out_t = m.Wire('ca_out_t', c_bits)
+        cb_out_t = m.Wire('cb_out_t', c_bits)
 
-        p_addr = m.Reg('p_addr', t_bits)
-        p_rd = m.Reg('p_rd')
-
-        cell1.assign(Mux(init_mem[p_addr], m_out[0:cell0.width], 0))
-        cell0.assign(Mux(init_mem[p_addr], m_out[cell0.width:m_out.width], 0))
-        v.assign(p_rd)
-        th.assign(p_addr)
+        counter_t.assign(Mux(flag_f_exec[idx_r], 0, counter))
+        counter_wr.assign(Mux(Uand(counter_t), 0, counter_t+1))
+        ca_out_t.assign(counter_t[0:c_bits])
+        cb_out_t.assign(counter_t[c_bits:c_bits*2])
 
         m.Always(Posedge(clk))(
             If(rst)(
-                done(0),
-            )  # .Else(
-            #    done(Uand(done_mem))
-            # ),
-        )
-
-        m.Always(Posedge(clk))(
-            If(rst)(
-                m_rd_addr(n_threads-1),
-                m_rd(0),
-                p_rd(0),
-                p_addr(0),
+                idx_out(0),
+                v_out(0),
+                ca_out(0),
+                cb_out(0),
+                idx_r(0),
+                flag_f_exec(Int((1 << n_threads) - 1, n_threads, 2)),
+                v_r(Int((1 << n_threads) - 1, n_threads, 2))
             ).Elif(start)(
-                m_rd(1),
-                p_addr(m_rd_addr),
-                p_rd(m_rd),
-                If(m_rd_addr == n_threads - 1)(
-                    m_rd_addr(0),
-                ).Else(
-                    m_rd_addr.inc(),
-                ),
-            )
-        )
-
-        m.Always(Posedge(clk))(
-            If(rst)(
-                init_mem(0),
-                # done_mem(0),
-                # v(0),
-                # cell0(0),
-                # cell1(0),
-            ).Else(
-                # m_wr(p_rd),
-                If(p_rd)(
-                    If(init_mem[p_addr])(
-                        # cell0(m_out[0:cell0.width]),
-                        # cell1(m_out[cell0.width:m_out.width]),
-                        #m_wr_data(m_out + 1),
+                idx_out(idx_r),
+                v_out(v_r[idx_r]),
+                ca_out(ca_out_t),
+                cb_out(cb_out_t),
+                v_r[idx_r](~v_r[idx_r]),
+                If(Not(v_r[idx_r]))(
+                    flag_f_exec[idx_r](0),
+                    If(idx_r == self.n_threads-1)(
+                        idx_r(0),
                     ).Else(
-                        init_mem[p_addr](1),
-                        # cell0(1),
-                        # cell1(0),
-                        # m_wr_data(1),
+                        idx_r.inc(),
                     ),
-                    # If(m_out == (n_cells * n_cells)-2)(
-                    #    done_mem[p_addr](1),
-                    # ),
-                    # m_wr_addr(p_addr),
-                    # th(p_addr),
-                    #v(Mux(done_mem[p_addr], 0, 1)),
                 ),
             )
         )
 
         par = []
         con = [
-            ("clk", clk),
-            ("rd", m_rd),
-            ("rd_addr0", m_rd_addr),
-            ("out0", m_out),
-            ("wr", p_rd),
-            ("wr_addr", p_addr),
-            ("wr_data", Mux(init_mem[p_addr],
-             m_out+Int(1, m_out.width, 2), Int(1, m_out.width, 2))),
+            ('clk', clk),
+            ('rd_addr0', idx_r),
+            ('out0', counter),
+            ('wr', ~v_r[idx_r]),
+            ('wr_addr', idx_r),
+            ('wr_data', counter_wr),
         ]
-        aux = self.create_memory_2r_1w(m_width, t_bits)
+        aux = self.create_memory_2r_1w(c_bits*2, t_bits)
         m.Instance(aux, aux.name, par, con)
 
         initialize_regs(m)
@@ -348,7 +313,7 @@ class SAComponents:
         align_bits = self.align_bits
         n_threads = self.n_threads
 
-        name = "st1_c2n_%dth_%dcells" % (n_threads, n_cells)
+        name = 'st1_c2n_%dth_%dcells' % (n_threads, n_cells)
         if name in self.cache.keys():
             return self.cache[name]
 
@@ -521,7 +486,7 @@ class SAComponents:
             # ('data_count',),
         ]
         aux = self.create_fifo()
-        m.Instance(aux, "%s_a" % aux.name, par, con)
+        m.Instance(aux, '%s_a' % aux.name, par, con)
 
         par = [
             ('FIFO_WIDTH', w_bits),
@@ -542,7 +507,7 @@ class SAComponents:
             # ('data_count',),
         ]
         aux = self.create_fifo()
-        m.Instance(aux, "%s_b" % aux.name, par, con)
+        m.Instance(aux, '%s_b' % aux.name, par, con)
 
         initialize_regs(m)
         self.cache[name] = m
@@ -555,7 +520,7 @@ class SAComponents:
         align_bits = self.align_bits
         n_threads = self.n_threads
 
-        name = "st2_n_%dth_%dcells" % (n_threads, n_cells)
+        name = 'st2_n_%dth_%dcells' % (n_threads, n_cells)
         if name in self.cache.keys():
             return self.cache[name]
 
@@ -641,7 +606,7 @@ class SAComponents:
                 ('wr_data', 0),
             ]
             aux = self.create_memory_2r_1w(node_bits+1, t_bits+c_bits)
-            m.Instance(aux, "%s_%i" % (aux.name, i), par, con)
+            m.Instance(aux, '%s_%i' % (aux.name, i), par, con)
 
         initialize_regs(m)
         self.cache[name] = m
@@ -654,7 +619,7 @@ class SAComponents:
         align_bits = self.align_bits
         n_threads = self.n_threads
 
-        name = "st3_n2c_%dth_%dcells" % (n_threads, n_cells)
+        name = 'st3_n2c_%dth_%dcells' % (n_threads, n_cells)
         if name in self.cache.keys():
             return self.cache[name]
 
@@ -774,7 +739,7 @@ class SAComponents:
                 ('wr_data', m_wr_data),
             ]
             aux = self.create_memory_2r_1w(c_bits, t_bits+c_bits)
-            m.Instance(aux, "%s_%d" % (aux.name, i), par, con)
+            m.Instance(aux, '%s_%d' % (aux.name, i), par, con)
 
         initialize_regs(m)
         self.cache[name] = m
@@ -787,7 +752,7 @@ class SAComponents:
         align_bits = self.align_bits
         n_threads = self.n_threads
 
-        name = "st4_d1_%dth_%dcells" % (n_threads, n_cells)
+        name = 'st4_d1_%dth_%dcells' % (n_threads, n_cells)
         if name in self.cache.keys():
             return self.cache[name]
 
@@ -888,7 +853,7 @@ class SAComponents:
         align_bits = self.align_bits
         n_threads = self.n_threads
 
-        name = "st5_d2_s1_%dth_%dcells" % (n_threads, n_cells)
+        name = 'st5_d2_s1_%dth_%dcells' % (n_threads, n_cells)
         if name in self.cache.keys():
             return self.cache[name]
 
@@ -998,7 +963,7 @@ class SAComponents:
         align_bits = self.align_bits
         n_threads = self.n_threads
 
-        name = "st6_s2_%dth_%dcells" % (n_threads, n_cells)
+        name = 'st6_s2_%dth_%dcells' % (n_threads, n_cells)
         if name in self.cache.keys():
             return self.cache[name]
 
@@ -1067,7 +1032,7 @@ class SAComponents:
         align_bits = self.align_bits
         n_threads = self.n_threads
 
-        name = "st7_s3_%dth_%dcells" % (n_threads, n_cells)
+        name = 'st7_s3_%dth_%dcells' % (n_threads, n_cells)
         if name in self.cache.keys():
             return self.cache[name]
 
@@ -1124,7 +1089,7 @@ class SAComponents:
         align_bits = self.align_bits
         n_threads = self.n_threads
 
-        name = "st8_s4_%dth_%dcells" % (n_threads, n_cells)
+        name = 'st8_s4_%dth_%dcells' % (n_threads, n_cells)
         if name in self.cache.keys():
             return self.cache[name]
 
@@ -1174,7 +1139,7 @@ class SAComponents:
         align_bits = self.align_bits
         n_threads = self.n_threads
 
-        name = "st9_cmp_%dth_%dcells" % (n_threads, n_cells)
+        name = 'st9_cmp_%dth_%dcells' % (n_threads, n_cells)
         if name in self.cache.keys():
             return self.cache[name]
 
@@ -1220,7 +1185,7 @@ class SAComponents:
         align_bits = self.align_bits
         n_threads = self.n_threads
 
-        name = "st10_reg_%dth_%dcells" % (n_threads, n_cells)
+        name = 'st10_reg_%dth_%dcells' % (n_threads, n_cells)
         if name in self.cache.keys():
             return self.cache[name]
 
@@ -1263,7 +1228,7 @@ class SAComponents:
         align_bits = self.align_bits
         n_threads = self.n_threads
 
-        name = "sa_pipeline_%dth_%dcells" % (n_threads, n_cells)
+        name = 'sa_pipeline_%dth_%dcells' % (n_threads, n_cells)
         if name in self.cache.keys():
             return self.cache[name]
 
@@ -1281,9 +1246,12 @@ class SAComponents:
         clk = m.Input('clk')
         rst = m.Input('rst')
         start = m.Input('start')
+        n_exec = m.Input('n_exec', 16)
+        done = m.OutputReg('done')
         m.EmbeddedCode('// -----')
 
         pipe_start = m.Wire('pipe_start')
+        counter_total = m.Reg('counter_total', n_exec.width+1)
 
         # Threads controller output wires
         m.EmbeddedCode('// Threads controller output wires')
@@ -1293,6 +1261,20 @@ class SAComponents:
         th_cb = m.Wire('th_cb', c_bits)
         m.EmbeddedCode('// -----')
         # -----
+
+        m.Always(Posedge(clk))(
+            If(rst)(
+                counter_total(0),
+                done(0),
+            ).Else(
+                If(AndList(th_idx == n_threads-1, ~th_v, Uand(Cat(th_ca, th_cb))))(
+                    counter_total.inc(),
+                ),
+                If(counter_total == n_exec)(
+                    done(1),
+                )
+            )
+        )
 
         # st1 output wires
         m.EmbeddedCode('// st1 output wires')
@@ -1418,6 +1400,19 @@ class SAComponents:
         pipe_start.assign(Uand(Cat(start, st1_rdy)))
 
         # modules instantiations
+        par = []
+        con = [
+            ('clk', clk),
+            ('rst', rst),
+            ('start', pipe_start),
+            ('idx_out', th_idx),
+            ('v_out', th_v),
+            ('ca_out', th_ca),
+            ('cb_out', th_cb),
+        ]
+        aux = self.create_threads_controller()
+        m.Instance(aux, aux.name, par, con)
+
         par = []
         con = [
             ('clk', clk),
