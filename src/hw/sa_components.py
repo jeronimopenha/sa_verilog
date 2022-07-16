@@ -52,6 +52,9 @@ class SAComponents:
             ),
         )
 
+        m.Initial(
+            Systask('readmemh', init_file, mem)
+        )
         '''m.EmbeddedCode('//synthesis translate_off')
         i = m.Integer('i')
         m.Initial(
@@ -93,11 +96,11 @@ class SAComponents:
 
         read_pointer = m.Reg('read_pointer', FIFO_DEPTH_BITS)
         write_pointer = m.Reg('write_pointer', FIFO_DEPTH_BITS)
-        m.EmbeddedCode(
-            "(* ramstyle = 'AUTO, no_rw_check' *) reg  [FIFO_WIDTH-1:0] mem[0:2**FIFO_DEPTH_BITS-1];")
-        m.EmbeddedCode('/*')
+        # m.EmbeddedCode(
+        #    "(* ramstyle = 'AUTO, no_rw_check' *) reg  [FIFO_WIDTH-1:0] mem[0:2**FIFO_DEPTH_BITS-1];")
+        # m.EmbeddedCode('/*')
         mem = m.Reg('mem', FIFO_WIDTH, Power(2, FIFO_DEPTH_BITS))
-        m.EmbeddedCode('*/')
+        # m.EmbeddedCode('*/')
 
         m.Always(Posedge(clk))(
             If(rst)(
@@ -289,7 +292,7 @@ class SAComponents:
             )
         )
 
-        par = []
+        par = [('init_file', '../rom/th.rom')]
         con = [
             ('clk', clk),
             ('rd_addr0', idx_r),
@@ -382,7 +385,7 @@ class SAComponents:
 
         m_wr = m.Wire('m_wr')
         m_wr_addr = m.Wire('m_wr_addr', c_bits+t_bits)
-        m_wr_data = m.Wire('m_wr_data', c_bits)
+        m_wr_data = m.Wire('m_wr_data', node_bits+1)
 
         fifoa_data.assign(Cat(idx_in, ca_in, nb_v_t, nb_t))
         fifob_data.assign(Cat(idx_in, cb_in, na_v_t, na_t))
@@ -453,11 +456,11 @@ class SAComponents:
             )
         )
 
-        par = []
+        par = [('init_file', '../rom/c_n.rom')]
         con = [
             ('clk', clk),
-            ('rd_addr0', ca_in),
-            ('rd_addr1', cb_in),
+            ('rd_addr0', Cat(idx_in, ca_in)),
+            ('rd_addr1', Cat(idx_in, cb_in)),
             ('out0', Cat(na_v_t, na_t)),
             ('out1', Cat(nb_v_t, nb_t)),
             ('wr', m_wr),
@@ -594,18 +597,18 @@ class SAComponents:
         )
 
         for i in range(n_neighbors):
-            par = []
+            par = [('init_file', '../rom/n%d.rom' % i)]
             con = [
                 ('clk', clk),
                 ('rd_addr0', na_in),
                 ('rd_addr1', nb_in),
                 ('out0', Cat(va_v_m[i], va_t[node_bits*i:node_bits*(i+1)])),
                 ('out1', Cat(vb_v_m[i], vb_t[node_bits*i:node_bits*(i+1)])),
-                ('wr', 0),
-                ('wr_addr', 0),
-                ('wr_data', 0),
+                ('wr', Int(0, 1, 2)),
+                ('wr_addr', Int(0, node_bits, 2)),
+                ('wr_data', Int(0, node_bits+1, 2)),
             ]
-            aux = self.create_memory_2r_1w(node_bits+1, t_bits+c_bits)
+            aux = self.create_memory_2r_1w(node_bits+1, node_bits)
             m.Instance(aux, '%s_%i' % (aux.name, i), par, con)
 
         initialize_regs(m)
@@ -727,11 +730,11 @@ class SAComponents:
         )
 
         for i in range(n_neighbors):
-            par = []
+            par = [('init_file', '../rom/n_c.rom')]
             con = [
                 ('clk', clk),
-                ('rd_addr0', va_in[i*c_bits:c_bits*(i+1)]),
-                ('rd_addr1', vb_in[i*c_bits:c_bits*(i+1)]),
+                ('rd_addr0', Cat(idx_in, va_in[i*c_bits:c_bits*(i+1)])),
+                ('rd_addr1', Cat(idx_in, vb_in[i*c_bits:c_bits*(i+1)])),
                 ('out0', cva_t[i*c_bits:c_bits*(i+1)]),
                 ('out1', cvb_t[i*c_bits:c_bits*(i+1)]),
                 ('wr', m_wr),
@@ -1382,17 +1385,17 @@ class SAComponents:
         # -----
 
         # st9 output wires
-        m.EmbeddedCode('// st10 output wires')
-        st9_idx = m.OutputReg('st9_idx', t_bits)
-        st9_v = m.OutputReg('st9_v')
-        st9_sw = m.OutputReg('st9_sw')
+        m.EmbeddedCode('// st9 output wires')
+        st9_idx = m.Wire('st9_idx', t_bits)
+        st9_v = m.Wire('st9_v')
+        st9_sw = m.Wire('st9_sw')
         m.EmbeddedCode('// -----')
         # -----
 
         # st10 output wires
         m.EmbeddedCode('// st10 output wires')
-        st10_idx = m.OutputReg('st10_idx', t_bits)
-        st10_v = m.OutputReg('st10_v')
+        st10_idx = m.Wire('st10_idx', t_bits)
+        st10_v = m.Wire('st10_v')
         st10_sw = m.Wire('st10_sw')
         m.EmbeddedCode('// -----')
         # -----

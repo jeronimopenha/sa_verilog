@@ -5,7 +5,7 @@ import pygraphviz as pgv
 import networkx as nx
 import random
 
-#from src.hw.sa_components import SAComponents
+# from src.hw.sa_components import SAComponents
 
 
 class SaGraph:
@@ -48,7 +48,7 @@ class SaGraph:
 
     def get_dot_vars(self):
         dot = self.dot
-        #g = nx.Graph(nx.nx_pydot.read_dot(dot))
+        # g = nx.Graph(nx.nx_pydot.read_dot(dot))
         gv = pgv.AGraph(dot, strict=False, directed=True)
         g = nx.DiGraph(gv)
         self.nodes = list(g.nodes)
@@ -84,7 +84,7 @@ class SaGraph:
                 cost_ += cost
             costs[c_n[i]] = cost_
         # print(costs)
-        #print(sorted(costs.items(), key=lambda x: x[0]))
+        # print(sorted(costs.items(), key=lambda x: x[0]))
         return cost  # costs
 
     def get_cost(self, n_c, node1, node2, cell1, cell2):
@@ -180,10 +180,10 @@ def create_rom_files(sa_comp):
     c_bits = ceil(log2(n_cells))
     t_bits = ceil(log2(n_threads))
     t_bits = 1 if t_bits == 0 else t_bits
-    node_bits = c_bits + 1
+    node_bits = c_bits
     lines = columns = int(sqrt(n_cells))
-    d_width = ceil(log2(lines+columns))
-    d_width += ceil(log2(n_neighbors))
+    w_bits = t_bits+c_bits+node_bits+1
+    dist_bits = c_bits + ceil(log2(n_neighbors*2))
 
     sa_graph.reset_random()
 
@@ -194,35 +194,41 @@ def create_rom_files(sa_comp):
         c_n.append(c_n_i)
         n_c.append(n_c_i)
 
-    cn_str_f = '{:0%dX}' % ceil(node_bits/16)
-    nc_str_f = '{:0%dX}' % ceil(c_bits/16)
-    p_str_f = '{:0%dX}' % 1
-    n_str_f = '{:0%dX}' % ceil(node_bits/16)
+    cn_str_f = '{:0%dX}' % ceil(node_bits/4)
+    nc_str_f = '{:0%dX}' % ceil(c_bits/4)
+    n_str_f = '{:0%dX}' % ceil(node_bits/4)
 
     cn_w = []  # [cn_str_f.format(0) for i in range(n_cells)]
     nc_w = []  # [nc_str_f.format(0) for i in range(n_cells)]
     p_w = []  # [p_str_f.format(0) for i in range(n_cells)]
     n_w = []
-    for t in range(n_threads):
-        cn_w.append([cn_str_f.format(0) for i in range(n_cells)])
-        nc_w.append([nc_str_f.format(0) for i in range(n_cells)])
-        p_w.append([p_str_f.format(0) for i in range(n_cells)])
+    for t in range(pow(2, ceil(sqrt(n_threads)))):
+        cn_w.append([cn_str_f.format(0)
+                    for i in range(pow(2, ceil(sqrt(n_cells))))])
+        nc_w.append([nc_str_f.format(0)
+                    for i in range(pow(2, ceil(sqrt(n_cells))))])
 
-    for c in range(n_cells):
+    for c in range(pow(2, ceil(sqrt(n_cells)))):
         n_w.append([n_str_f.format(0) for i in range(n_neighbors)])
     for k in sa_graph.neighbors.keys():
         idx = 0
         for n in sa_graph.neighbors[k]:
-            n_w[k][idx] = n_str_f.format((1 << node_bits-1) | n)
+            n_w[k][idx] = n_str_f.format((1 << node_bits) | n)
             idx += 1
 
     for t in range(len(c_n)):
         for cni in range(len(c_n[t])):
-            cn_w[t][cni] = cn_str_f.format((1 << node_bits-1) | c_n[t][cni])
+            cn_w[t][cni] = cn_str_f.format((1 << node_bits) | c_n[t][cni])
 
     for t in range(len(n_c)):
         for nci in range(len(n_c[t])):
             nc_w[t][nci] = nc_str_f.format(n_c[t][nci])
+
+    with open(os.getcwd() + '/rom/th.rom', 'w') as f:
+        for i in range(pow(2, ceil(sqrt(n_threads)))):
+            f.write(str(0))
+            f.write('\n')
+        f.close()
 
     with open(os.getcwd() + '/rom/n_c.rom', 'w') as f:
         for t in nc_w:
@@ -245,16 +251,6 @@ def create_rom_files(sa_comp):
                 f.write('\n')
         f.close()
 
-    with open(os.getcwd() + '/rom/p.rom', 'w') as f:
-        for t in p_w:
-            for d in t:
-                f.write(d)
-                f.write('\n')
-        if n_threads == 1:
-            for d in range(n_cells):
-                f.write(p_str_f.format(0))
-                f.write('\n')
-        f.close()
     for i in range(n_neighbors):
         with open(os.getcwd() + '/rom/n%d.rom' % i, 'w') as f:
             for c in range(n_cells):
