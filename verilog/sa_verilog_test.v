@@ -16,7 +16,7 @@ module testbench_sa_pipeline_6threads_16cells
     .clk(clk),
     .rst(rst),
     .start(start),
-    .n_exec(16'd20),
+    .n_exec(16'd1),
     .done(done)
   );
 
@@ -40,8 +40,13 @@ module testbench_sa_pipeline_6threads_16cells
     @(posedge clk);
     rst = 0;
     start = 1;
-    #4000;
-    $finish;
+  end
+
+
+  always @(posedge clk) begin
+    if(done) begin
+      $finish;
+    end 
   end
 
   always #5clk=~clk;

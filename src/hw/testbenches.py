@@ -110,7 +110,7 @@ def create_sa_verilog_test_bench(sa_comp: _sa.SAComponents) -> str:
         ('clk', clk),
         ('rst', rst),
         ('start', start),
-        ('n_exec', Int(2, 16, 10)),
+        ('n_exec', Int(1, 16, 10)),
         ('done', done)
     ]
     aux = sa_comp.create_sa_pipeline()
@@ -124,9 +124,16 @@ def create_sa_verilog_test_bench(sa_comp: _sa.SAComponents) -> str:
         EmbeddedCode("@(posedge clk);"),
         rst(0),
         start(1),
-        Delay(4000),
-        Finish(),
+        #Delay(4000),
+        #Finish(),
     )
+
+    m.Always(Posedge(clk))(
+        If(done)(
+            Finish()
+        )
+    )
+
     m.EmbeddedCode("always #5clk=~clk;")
     # m.Always(Posedge(clk))(
     #    If(rnd_en)(
@@ -134,7 +141,12 @@ def create_sa_verilog_test_bench(sa_comp: _sa.SAComponents) -> str:
     #    )
     # )
 
-    m.to_verilog(os.getcwd() + "/verilog/sa_verilog_test.v")
+    m.to_verilog(os.getcwd() + '/verilog/sa_verilog_test.v')
     sim = simulation.Simulator(m, sim="iverilog")
-    #rslt = sim.run()
-    # print(rslt)
+    rslt = sim.run()
+    print(rslt)
+    _u.create_dot_from_rom_files(
+        os.getcwd() + '/rom/c_n.rom','ini_th', os.getcwd() + '/rom/', n_threads, n_cells)
+    _u.create_dot_from_rom_files(
+        os.getcwd() + '/rom/c_n_out.rom','end_th', os.getcwd() + '/rom/', n_threads, n_cells)
+    print(sa_graph.neighbors)

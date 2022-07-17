@@ -2,7 +2,7 @@ import os
 from math import ceil, dist, log2, sqrt
 from traceback import walk_tb
 from veriloggen import *
-from src.utils.util import initialize_regs, SaGraph
+import src.utils.util as _u
 
 
 class SAComponents:
@@ -10,7 +10,7 @@ class SAComponents:
 
     def __init__(
         self,
-        sa_graph: SaGraph,
+        sa_graph: _u.SaGraph,
         n_threads: int = 4,
         n_neighbors: int = 4,
         align_bits: int = 8,
@@ -28,7 +28,10 @@ class SAComponents:
             return self.cache[name]
 
         m = Module(name)
+        read_f = m.Parameter('read_f', 0)
         init_file = m.Parameter('init_file', 'mem_file.txt')
+        write_f = m.Parameter('write_f', 0)
+        output_file = m.Parameter('output_file', 'mem_out_file.txt')
 
         clk = m.Input('clk')
         # rd = m.Input('rd')
@@ -52,9 +55,20 @@ class SAComponents:
             ),
         )
 
-        m.Initial(
-            Systask('readmemh', init_file, mem)
+        m.EmbeddedCode('//synthesis translate_off')
+        m.Always(Posedge(clk))(
+            If(AndList(wr, write_f))(
+                Systask('writememh', output_file, mem)
+            ),
         )
+
+        m.Initial(
+            If(read_f)(
+                Systask('readmemh', init_file, mem),
+            )
+        )
+        m.EmbeddedCode('//synthesis translate_on')
+
         '''m.EmbeddedCode('//synthesis translate_off')
         i = m.Integer('i')
         m.Initial(
@@ -218,7 +232,7 @@ class SAComponents:
                         mem[c].assign(Int(d, dist_bits, 10))
                         c = c + 1
 
-        initialize_regs(m)
+        _u.initialize_regs(m)
         self.cache[name] = m
         return m
 
@@ -292,7 +306,11 @@ class SAComponents:
             )
         )
 
-        par = [('init_file', '../rom/th.rom')]
+        par = [
+            ('init_file', './rom/th.rom'),
+            ('read_f', 1),
+            ('write_f', 0)
+        ]
         con = [
             ('clk', clk),
             ('rd_addr0', idx_r),
@@ -304,7 +322,7 @@ class SAComponents:
         aux = self.create_memory_2r_1w(c_bits*2, t_bits)
         m.Instance(aux, aux.name, par, con)
 
-        initialize_regs(m)
+        _u.initialize_regs(m)
 
         self.cache[name] = m
         return m
@@ -395,22 +413,22 @@ class SAComponents:
         fifob_wr_en.assign(Uor(Cat(Uand(Cat(rdy, v_in)), fifo_init)))
 
         i = 0
-        wa_n.assign(wa_t[i:node_bits])
+        wa_n.assign(wa_t[i: node_bits])
         i += node_bits
         wa_n_v.assign(wa_t[i])
         i += 1
-        wa_c.assign(wa_t[i:c_bits+i])
+        wa_c.assign(wa_t[i: c_bits+i])
         i += c_bits
-        wa_idx.assign(wa_t[i:t_bits+i])
+        wa_idx.assign(wa_t[i: t_bits+i])
 
         i = 0
-        wb_n.assign(st1_wb_in[i:node_bits])
+        wb_n.assign(st1_wb_in[i: node_bits])
         i += node_bits
         wb_n_v.assign(st1_wb_in[i])
         i += 1
-        wb_c.assign(st1_wb_in[i:c_bits+i])
+        wb_c.assign(st1_wb_in[i: c_bits+i])
         i += c_bits
-        wb_idx.assign(st1_wb_in[i:t_bits+i])
+        wb_idx.assign(st1_wb_in[i: t_bits+i])
 
         m_wr.assign(sw_in)
         m_wr_addr.assign(Mux(flag, Cat(wa_idx, wa_c), Cat(wb_idx, wb_c)))
@@ -446,7 +464,7 @@ class SAComponents:
                 fifo_init(0),
                 counter(0),
             ).Else(
-                If(counter == n_threads-2-1)(
+                If(counter == n_threads-2)(
                     rdy(1),
                     fifo_init(0),
                 ).Else(
@@ -456,7 +474,12 @@ class SAComponents:
             )
         )
 
-        par = [('init_file', '../rom/c_n.rom')]
+        par = [
+            ('init_file', './rom/c_n.rom'),
+            ('read_f', 1),
+            ('write_f', 1),
+            ('output_file', './rom/c_n_out.rom')
+        ]
         con = [
             ('clk', clk),
             ('rd_addr0', Cat(idx_in, ca_in)),
@@ -512,7 +535,7 @@ class SAComponents:
         aux = self.create_fifo()
         m.Instance(aux, '%s_b' % aux.name, par, con)
 
-        initialize_regs(m)
+        _u.initialize_regs(m)
         self.cache[name] = m
         return m
 
@@ -597,7 +620,11 @@ class SAComponents:
         )
 
         for i in range(n_neighbors):
-            par = [('init_file', '../rom/n%d.rom' % i)]
+            par = [
+                ('init_file', './rom/n%d.rom' % i),
+                ('read_f', 1),
+                ('write_f', 0)
+            ]
             con = [
                 ('clk', clk),
                 ('rd_addr0', na_in),
@@ -611,7 +638,7 @@ class SAComponents:
             aux = self.create_memory_2r_1w(node_bits+1, node_bits)
             m.Instance(aux, '%s_%i' % (aux.name, i), par, con)
 
-        initialize_regs(m)
+        _u.initialize_regs(m)
         self.cache[name] = m
         return m
 
@@ -730,7 +757,12 @@ class SAComponents:
         )
 
         for i in range(n_neighbors):
-            par = [('init_file', '../rom/n_c.rom')]
+            par = [
+                ('init_file', './rom/n_c.rom'),
+                ('read_f', 1),
+                ('write_f', 1 if i == 0 else 0),
+                ('output_file', './rom/n_c_out.rom')
+            ]
             con = [
                 ('clk', clk),
                 ('rd_addr0', Cat(idx_in, va_in[i*c_bits:c_bits*(i+1)])),
@@ -744,7 +776,7 @@ class SAComponents:
             aux = self.create_memory_2r_1w(c_bits, t_bits+c_bits)
             m.Instance(aux, '%s_%d' % (aux.name, i), par, con)
 
-        initialize_regs(m)
+        _u.initialize_regs(m)
         self.cache[name] = m
         return m
 
@@ -845,7 +877,7 @@ class SAComponents:
 
         # -----
 
-        initialize_regs(m)
+        _u.initialize_regs(m)
         self.cache[name] = m
         return m
 
@@ -893,8 +925,8 @@ class SAComponents:
 
         cas = m.Wire('cas', c_bits)
         cbs = m.Wire('cbs', c_bits)
-        opva = m.Input('opva', c_bits*n_neighbors)
-        opvb = m.Input('opvb', c_bits*n_neighbors)
+        opva = m.Wire('opva', c_bits*n_neighbors)
+        opvb = m.Wire('opvb', c_bits*n_neighbors)
         dvac_t = m.Wire('dvac_t', dvac_out.width)
         dvbc_t = m.Wire('dvbc_t', dvbc_out.width)
         dvas_t = m.Wire('dvas_t', n_neighbors*dist_bits)
@@ -915,6 +947,10 @@ class SAComponents:
         for i in range(n_neighbors):
             opva[i*c_bits:c_bits*(i+1)].assign(Mux(cva_in[i*c_bits:c_bits*(i+1)]
                                                    == cas, cbs, cva_in[i*c_bits:c_bits*(i+1)]))
+
+        for i in range(n_neighbors):
+            opvb[i*c_bits:c_bits*(i+1)].assign(Mux(cvb_in[i*c_bits:c_bits*(i+1)]
+                                                   == cbs, cas, cvb_in[i*c_bits:c_bits*(i+1)]))
 
         m.Always(Posedge(clk))(
             idx_out(idx_in),
@@ -955,7 +991,7 @@ class SAComponents:
             aux = self.create_distance_rom()
             m.Instance(aux, '%s_dbs_%d' % (aux.name, (i // 2)), par, con)
 
-        initialize_regs(m)
+        _u.initialize_regs(m)
         self.cache[name] = m
         return m
 
@@ -1024,7 +1060,7 @@ class SAComponents:
             dvbs_out(dvbs_t),
         )
 
-        initialize_regs(m)
+        _u.initialize_regs(m)
         self.cache[name] = m
         return m
 
@@ -1081,7 +1117,7 @@ class SAComponents:
             dvbs_out(dvbs_t),
         )
 
-        initialize_regs(m)
+        _u.initialize_regs(m)
         self.cache[name] = m
         return m
 
@@ -1131,7 +1167,7 @@ class SAComponents:
             ds_out(ds_t),
         )
 
-        initialize_regs(m)
+        _u.initialize_regs(m)
         self.cache[name] = m
         return m
 
@@ -1177,7 +1213,7 @@ class SAComponents:
             sw_out(sw_t)
         )
 
-        initialize_regs(m)
+        _u.initialize_regs(m)
         self.cache[name] = m
         return m
 
@@ -1220,7 +1256,7 @@ class SAComponents:
 
         # -----
 
-        initialize_regs(m)
+        _u.initialize_regs(m)
         self.cache[name] = m
         return m
 
@@ -1546,7 +1582,7 @@ class SAComponents:
             ('cvb_v_in', st4_cvb_v),
             ('dvac_in', st4_dvac),
             ('dvbc_in', st4_dvbc),
-            ('idx_out', st4_idx),
+            ('idx_out', st5_idx),
             ('v_out', st5_v),
             ('dvac_out', st5_dvac),
             ('dvbc_out', st5_dvbc),
@@ -1638,6 +1674,6 @@ class SAComponents:
         m.Instance(aux, aux.name, par, con)
         # -----
 
-        initialize_regs(m)
+        _u.initialize_regs(m)
         self.cache[name] = m
         return m

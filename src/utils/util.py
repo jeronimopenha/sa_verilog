@@ -4,6 +4,7 @@ import subprocess
 import pygraphviz as pgv
 import networkx as nx
 import random
+#import src.hw.sa_components as _sa_comp
 
 # from src.hw.sa_components import SAComponents
 
@@ -127,7 +128,7 @@ def state(val, size):
     return format(val, "0%dx" % size)
 
 
-def initialize_regs(module, values=None):
+def initialize_regs(module: Module, values=None):
     regs = []
     if values is None:
         values = {}
@@ -218,11 +219,13 @@ def create_rom_files(sa_comp):
 
     for t in range(len(c_n)):
         for cni in range(len(c_n[t])):
-            cn_w[t][cni] = cn_str_f.format((1 << node_bits) | c_n[t][cni])
+            if c_n[t][cni] is not None:
+                cn_w[t][cni] = cn_str_f.format((1 << node_bits) | c_n[t][cni])
 
     for t in range(len(n_c)):
         for nci in range(len(n_c[t])):
-            nc_w[t][nci] = nc_str_f.format(n_c[t][nci])
+            if n_c[t][nci] is not None:
+                nc_w[t][nci] = nc_str_f.format(n_c[t][nci])
 
     with open(os.getcwd() + '/rom/th.rom', 'w') as f:
         for i in range(pow(2, ceil(sqrt(n_threads)))):
@@ -257,3 +260,57 @@ def create_rom_files(sa_comp):
                 f.write(n_w[c][i])
                 f.write('\n')
             f.close()
+
+
+def create_dot_from_rom_files(rom_file: str, prefix: str, output_path: str, n_threads: int, n_cells: int):
+    c_bits = ceil(log2(n_cells))
+    output_dot_files = [prefix+'%d.dot' % i for i in range(n_threads)]
+    dot_head = 'digraph layout{\n rankdir=TB;\n splines=ortho;\n node [style=filled shape=square fixedsize=true width=0.6];\n'
+    dot_foot = 'edge [constraint=true, style=invis];\n'
+    sqrt_cells = ceil(sqrt(n_cells))
+
+    for i in range(sqrt_cells):
+        for j in range(sqrt_cells):
+            dot_foot = dot_foot + '%d' % (j * sqrt_cells + i)
+            if (j + 1) % sqrt_cells == 0:
+                dot_foot = dot_foot + ';\n'
+            else:
+                dot_foot = dot_foot + ' -> '
+
+    for i in range(n_cells):
+        if i % sqrt_cells == 0:
+            dot_foot = dot_foot + 'rank = same {'
+        dot_foot = dot_foot + '%d' % i
+        if (i + 1) % sqrt_cells == 0:
+            dot_foot = dot_foot + '};\n'
+        else:
+            dot_foot = dot_foot + ' -> '
+
+    dot_foot = dot_foot + '}'
+
+    str_out = [dot_head for i in range(n_threads)]
+    file_lines = []
+    with open(rom_file) as f:
+        file_lines = f.readlines()
+        f.close()
+    for t in range(n_threads):
+        c = 0
+        while(c < n_cells):
+            c_content = file_lines.pop(0)
+            if '//' in c_content:
+                continue
+            c_content = c_content.split('\n')[0]
+            v = int(c_content, 16)
+            v = v & (n_cells-1)
+            v = str(v)
+            # print('%d[label="%s", fontsize=8, fillcolor="%s"];\n' % (
+            #    c, '' if int(c_content, 16) == 0 else v, '#ffffff' if int(c_content, 16) == 0 else '#d9d9d9'))
+            str_out[t] += '%d[label="%s", fontsize=8, fillcolor="%s"];\n' % (
+                c, '' if int(c_content, 16) == 0 else v, '#ffffff' if int(c_content, 16) == 0 else '#d9d9d9')
+            c += 1
+        str_out[t] += dot_foot
+
+    for t in range(n_threads):
+        with open(output_path+output_dot_files[t], 'w') as f:
+            f.write(str_out[t])
+        f.close()

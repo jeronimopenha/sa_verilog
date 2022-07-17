@@ -1,0 +1,3 @@
+[connectivity]
+sp=sa_100_1.in0:DDR[0]
+sp=sa_100_1.out0:DDR[0]
