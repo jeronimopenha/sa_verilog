@@ -1,4 +1,4 @@
-import random
+'''import random
 
 
 def test_swap_algorithm():
@@ -67,4 +67,34 @@ def swap_algorithm(a):
             print('%d ' % a[i])
 
 
-test_swap_algorithm()
+#test_swap_algorithm()'''
+
+from veriloggen import *
+
+
+def test():
+    m = Module('test')
+    clk = m.Input('CLK')
+    rst = m.Input('RST')
+
+    n_cells = 64*64
+
+    ca = m.Wire('ca', 6)
+    cb = m.Wire('cb', 6)
+
+    data = m.Reg('data', 6)
+
+    s = m.Always(Posedge(clk))
+    c = Case(Cat(cb,ca))
+
+    for i in range(n_cells):
+        c.add(When(Int(i,12,2))(data(Int(i,12,10))))
+    s.set_statement(c)
+
+    return m
+
+
+if __name__ == '__main__':
+    test = test()
+    verilog = test.to_verilog()
+    print(verilog)

@@ -1,6 +1,6 @@
 
 
-module testbench_sa_pipeline_6threads_16cells
+module test_bench_sa_acc
 (
 
 );
@@ -8,16 +8,91 @@ module testbench_sa_pipeline_6threads_16cells
   reg clk;
   reg rst;
   reg start;
-  wire done;
+  reg sa_aws_done_rd_data;
+  reg sa_aws_done_wr_data;
+  wire sa_aws_request_read;
+  reg sa_aws_read_data_valid;
+  reg [16-1:0] sa_aws_read_data;
+  reg sa_aws_available_write;
+  wire sa_aws_request_write;
+  wire [16-1:0] sa_aws_write_data;
+  wire sa_aws_done;
+  reg [2-1:0] fsm_produce_data;
+  localparam fsm_produce = 0;
+  localparam fsm_done = 1;
 
-  sa_pipeline_6th_16cells
-  sa_pipeline_6th_16cells
+  always @(posedge clk) begin
+    if(rst) begin
+      start <= 0;
+      sa_aws_read_data_valid <= 0;
+      sa_aws_done_rd_data <= 0;
+      sa_aws_done_wr_data <= 0;
+      fsm_produce_data <= fsm_produce;
+    end else begin
+      start <= 1;
+      case(fsm_produce_data)
+        fsm_produce: begin
+          sa_aws_read_data_valid <= 1;
+          sa_aws_read_data <= 16'd1;
+          if(sa_aws_request_read && sa_aws_read_data_valid) begin
+            sa_aws_read_data_valid <= 0;
+            fsm_produce_data <= fsm_done;
+          end 
+        end
+        fsm_done: begin
+          sa_aws_done_rd_data <= 1;
+        end
+      endcase
+    end
+  end
+
+  reg [8-1:0] rd_counter;
+  reg [2-1:0] fsm_consume_data;
+  localparam fsm_consume_data_rd = 0;
+  localparam fsm_consume_data_show = 1;
+  localparam fsm_consume_data_done = 2;
+
+  always @(posedge clk) begin
+    if(rst) begin
+      rd_counter <= 0;
+      sa_aws_available_write <= 0;
+      sa_aws_done_wr_data <= 0;
+      fsm_consume_data <= fsm_consume_data_rd;
+    end else begin
+      case(fsm_consume_data)
+        fsm_consume_data_rd: begin
+          sa_aws_available_write <= 1;
+          if(sa_aws_request_write) begin
+            rd_counter <= rd_counter + 1;
+            $display(sa_aws_write_data);
+            if(rd_counter == 127) begin
+              sa_aws_available_write <= 0;
+              fsm_consume_data <= fsm_consume_data_done;
+            end 
+          end 
+        end
+        fsm_consume_data_done: begin
+          sa_aws_done_wr_data <= 1;
+        end
+      endcase
+    end
+  end
+
+
+  sa_aws
+  sa_aws
   (
     .clk(clk),
     .rst(rst),
     .start(start),
-    .n_exec(16'd1),
-    .done(done)
+    .sa_aws_done_rd_data(sa_aws_done_rd_data),
+    .sa_aws_done_wr_data(sa_aws_done_wr_data),
+    .sa_aws_request_read(sa_aws_request_read),
+    .sa_aws_read_data_valid(sa_aws_read_data_valid),
+    .sa_aws_read_data(sa_aws_read_data),
+    .sa_aws_available_write(sa_aws_available_write),
+    .sa_aws_request_write(sa_aws_request_write),
+    .sa_aws_write_data(sa_aws_write_data)
   );
 
 
@@ -25,6 +100,14 @@ module testbench_sa_pipeline_6threads_16cells
     clk = 0;
     rst = 1;
     start = 0;
+    sa_aws_done_rd_data = 0;
+    sa_aws_done_wr_data = 0;
+    sa_aws_read_data_valid = 0;
+    sa_aws_read_data = 0;
+    sa_aws_available_write = 0;
+    fsm_produce_data = 0;
+    rd_counter = 0;
+    fsm_consume_data = 0;
   end
 
 
@@ -39,17 +122,296 @@ module testbench_sa_pipeline_6threads_16cells
     @(posedge clk);
     @(posedge clk);
     rst = 0;
-    start = 1;
+    #500;
+    $finish;
   end
 
+  always #5clk=~clk;
 
   always @(posedge clk) begin
-    if(done) begin
+    if(sa_aws_done) begin
+      $display("ACC DONE!");
       $finish;
     end 
   end
 
-  always #5clk=~clk;
+
+  //Simulation sector - End
+
+endmodule
+
+
+
+module sa_aws
+(
+  input clk,
+  input rst,
+  input start,
+  input sa_aws_done_rd_data,
+  input sa_aws_done_wr_data,
+  output sa_aws_request_read,
+  input sa_aws_read_data_valid,
+  input [16-1:0] sa_aws_read_data,
+  input sa_aws_available_write,
+  output reg sa_aws_request_write,
+  output reg [16-1:0] sa_aws_write_data,
+  output sa_aws_done
+);
+
+  assign sa_aws_done = &{ sa_aws_done_wr_data, sa_aws_done_rd_data };
+  reg pop_data;
+  wire available_pop;
+  wire [16-1:0] data_out;
+  reg [16-1:0] config_data;
+  reg [2-1:0] fms_sd;
+  localparam [2-1:0] fsm_sd_idle = 0;
+  localparam [2-1:0] fsm_sd_send_data = 1;
+  reg flag;
+  wire sa_done;
+  reg sa_rd;
+  reg [5-1:0] sa_rd_addr;
+  wire sa_out_v;
+  wire [5-1:0] sa_out_data;
+
+  always @(posedge clk) begin
+    if(rst) begin
+      pop_data <= 0;
+      fms_sd <= fsm_sd_idle;
+      flag <= 0;
+    end else begin
+      if(start) begin
+        pop_data <= 0;
+        flag <= 0;
+        case(fms_sd)
+          fsm_sd_idle: begin
+            if(available_pop) begin
+              pop_data <= 1;
+              flag <= 1;
+              fms_sd <= fsm_sd_send_data;
+            end 
+          end
+          fsm_sd_send_data: begin
+            if(available_pop | flag) begin
+              config_data <= data_out;
+              pop_data <= 1;
+            end else begin
+              fms_sd <= fsm_sd_idle;
+            end
+          end
+        endcase
+      end 
+    end
+  end
+
+
+  //Data Consumer - Begin
+  reg [2-1:0] fsm_consume;
+  localparam fsm_consume_wait = 0;
+  localparam fsm_consume_consume = 1;
+  localparam fsm_consume_verify = 2;
+  localparam fsm_consume_done = 3;
+
+  always @(posedge clk) begin
+    if(rst) begin
+      sa_rd <= 0;
+      sa_rd_addr <= 0;
+      sa_aws_request_write <= 0;
+      fsm_consume <= fsm_consume_wait;
+    end else begin
+      sa_rd <= 0;
+      sa_aws_request_write <= 0;
+      case(fsm_consume)
+        fsm_consume_wait: begin
+          if(sa_aws_available_write) begin
+            if(sa_done) begin
+              sa_rd <= 1;
+              fsm_consume <= fsm_consume_consume;
+            end 
+          end 
+        end
+        fsm_consume_consume: begin
+          if(sa_out_v) begin
+            sa_aws_write_data <= sa_out_data;
+            sa_rd_addr <= sa_rd_addr + 1;
+            fsm_consume <= fsm_consume_verify;
+          end 
+        end
+        fsm_consume_verify: begin
+          if(sa_rd_addr == 128) begin
+            fsm_consume <= fsm_consume_done;
+          end else begin
+            fsm_consume <= fsm_consume_wait;
+          end
+        end
+        fsm_consume_done: begin
+        end
+      endcase
+    end
+  end
+
+  //Data Consumer - Begin
+  (* keep_hierarchy = "yes" *)
+
+  fecth_data_16_16
+  fecth_data_16_16
+  (
+    .clk(clk),
+    .rst(rst),
+    .start(start),
+    .request_read(sa_aws_request_read),
+    .data_valid(sa_aws_read_data_valid),
+    .read_data(sa_aws_read_data),
+    .pop_data(pop_data),
+    .available_pop(available_pop),
+    .data_out(data_out)
+  );
+
+
+  sa_pipeline_6th_16cells
+  sa_pipeline_6th_16cells
+  (
+    .clk(clk),
+    .rst(rst),
+    .start(start),
+    .n_exec(config_data),
+    .done(sa_done),
+    .rd(sa_rd),
+    .rd_addr(sa_rd_addr),
+    .out_v(sa_out_v),
+    .out_data(sa_out_data)
+  );
+
+
+  initial begin
+    sa_aws_request_write = 0;
+    sa_aws_write_data = 0;
+    pop_data = 0;
+    config_data = 0;
+    fms_sd = 0;
+    flag = 0;
+    sa_rd = 0;
+    sa_rd_addr = 0;
+    fsm_consume = 0;
+  end
+
+
+endmodule
+
+
+
+module fecth_data_16_16
+(
+  input clk,
+  input start,
+  input rst,
+  output reg request_read,
+  input data_valid,
+  input [16-1:0] read_data,
+  input pop_data,
+  output reg available_pop,
+  output [16-1:0] data_out
+);
+
+  reg [1-1:0] fsm_read;
+  reg [1-1:0] fsm_control;
+  reg [16-1:0] data;
+  reg [16-1:0] buffer;
+  reg [1-1:0] count;
+  reg has_buffer;
+  reg buffer_read;
+  reg en;
+
+  assign data_out = data[15:0];
+
+  always @(posedge clk) begin
+    if(rst) begin
+      en <= 1'b0;
+    end else begin
+      en <= (en)? en : start;
+    end
+  end
+
+
+  always @(posedge clk) begin
+    if(rst) begin
+      fsm_read <= 0;
+      request_read <= 0;
+      has_buffer <= 0;
+    end else begin
+      request_read <= 0;
+      case(fsm_read)
+        0: begin
+          if(en & data_valid) begin
+            buffer <= read_data;
+            request_read <= 1;
+            has_buffer <= 1;
+            fsm_read <= 1;
+          end 
+        end
+        1: begin
+          if(buffer_read) begin
+            has_buffer <= 0;
+            fsm_read <= 0;
+          end 
+        end
+      endcase
+    end
+  end
+
+
+  always @(posedge clk) begin
+    if(rst) begin
+      fsm_control <= 0;
+      available_pop <= 0;
+      count <= 0;
+      buffer_read <= 0;
+    end else begin
+      buffer_read <= 0;
+      case(fsm_control)
+        0: begin
+          if(has_buffer) begin
+            data <= buffer;
+            count <= 1;
+            buffer_read <= 1;
+            available_pop <= 1;
+            fsm_control <= 1;
+          end 
+        end
+        1: begin
+          if(pop_data & ~count[0]) begin
+            count <= count << 1;
+            data <= data[15:16];
+          end 
+          if(pop_data & count[0] & has_buffer) begin
+            count <= 1;
+            data <= buffer;
+            buffer_read <= 1;
+          end 
+          if(count[0] & pop_data & ~has_buffer) begin
+            count <= count << 1;
+            data <= data[15:16];
+            available_pop <= 0;
+            fsm_control <= 0;
+          end 
+        end
+      endcase
+    end
+  end
+
+
+  initial begin
+    request_read = 0;
+    available_pop = 0;
+    fsm_read = 0;
+    fsm_control = 0;
+    data = 0;
+    buffer = 0;
+    count = 0;
+    has_buffer = 0;
+    buffer_read = 0;
+    en = 0;
+  end
+
 
 endmodule
 
@@ -61,7 +423,11 @@ module sa_pipeline_6th_16cells
   input rst,
   input start,
   input [16-1:0] n_exec,
-  output reg done
+  output reg done,
+  input rd,
+  input [4-1:0] rd_addr,
+  output out_v,
+  output [5-1:0] out_data
 );
 
   // basic control inputs
@@ -189,6 +555,7 @@ module sa_pipeline_6th_16cells
     .clk(clk),
     .rst(rst),
     .start(pipe_start),
+    .done(done),
     .idx_out(th_idx),
     .v_out(th_v),
     .ca_out(th_ca),
@@ -199,6 +566,10 @@ module sa_pipeline_6th_16cells
   st1_c2n_6th_16cells
   st1_c2n_6th_16cells
   (
+    .rd(rd),
+    .rd_addr(rd_addr),
+    .out_v(out_v),
+    .out_data(out_data),
     .clk(clk),
     .rst(rst),
     .rdy(st1_rdy),
@@ -431,6 +802,7 @@ module th_controller_6th_16cells
   input clk,
   input rst,
   input start,
+  input done,
   output reg [3-1:0] idx_out,
   output reg v_out,
   output reg [4-1:0] ca_out,
@@ -462,7 +834,7 @@ module th_controller_6th_16cells
     end else begin
       if(start) begin
         idx_out <= idx_r;
-        v_out <= v_r[idx_r];
+        v_out <= (done)? 1'b0 : v_r[idx_r];
         ca_out <= ca_out_t;
         cb_out <= cb_out_t;
         v_r[idx_r] <= ~v_r[idx_r];
@@ -547,6 +919,7 @@ module mem_2r_1w_width8_depth3 #
     end 
   end
 
+  //synthesis translate_on
 
   initial begin
     if(read_f) begin
@@ -554,7 +927,6 @@ module mem_2r_1w_width8_depth3 #
     end 
   end
 
-  //synthesis translate_on
 
 endmodule
 
@@ -564,6 +936,10 @@ module st1_c2n_6th_16cells
 (
   input clk,
   input rst,
+  input rd,
+  input [4-1:0] rd_addr,
+  output reg out_v,
+  output reg [5-1:0] out_data,
   input [3-1:0] idx_in,
   input v_in,
   input [4-1:0] ca_in,
@@ -640,6 +1016,8 @@ module st1_c2n_6th_16cells
     sw_out <= sw_in;
     wa_out <= wa_t;
     wb_out <= wb_t;
+    out_v <= rd;
+    out_data <= { na_v_t, na_t };
   end
 
 
@@ -681,7 +1059,7 @@ module st1_c2n_6th_16cells
   mem_2r_1w_width5_depth7
   (
     .clk(clk),
-    .rd_addr0({ idx_in, ca_in }),
+    .rd_addr0((rd)? rd_addr : { idx_in, ca_in }),
     .rd_addr1({ idx_in, cb_in }),
     .out0({ na_v_t, na_t }),
     .out1({ nb_v_t, nb_t }),
@@ -724,6 +1102,8 @@ module st1_c2n_6th_16cells
 
 
   initial begin
+    out_v = 0;
+    out_data = 0;
     rdy = 0;
     idx_out = 0;
     v_out = 0;
@@ -782,6 +1162,7 @@ module mem_2r_1w_width5_depth7 #
     end 
   end
 
+  //synthesis translate_on
 
   initial begin
     if(read_f) begin
@@ -789,7 +1170,6 @@ module mem_2r_1w_width5_depth7 #
     end 
   end
 
-  //synthesis translate_on
 
 endmodule
 
@@ -1087,6 +1467,7 @@ module mem_2r_1w_width5_depth4 #
     end 
   end
 
+  //synthesis translate_on
 
   initial begin
     if(read_f) begin
@@ -1094,7 +1475,6 @@ module mem_2r_1w_width5_depth4 #
     end 
   end
 
-  //synthesis translate_on
 
 endmodule
 
@@ -1315,6 +1695,7 @@ module mem_2r_1w_width4_depth7 #
     end 
   end
 
+  //synthesis translate_on
 
   initial begin
     if(read_f) begin
@@ -1322,7 +1703,6 @@ module mem_2r_1w_width4_depth7 #
     end 
   end
 
-  //synthesis translate_on
 
 endmodule
 
