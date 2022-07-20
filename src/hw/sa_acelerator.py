@@ -11,7 +11,7 @@ class SaAccelerator:
 
         self.sa_graph = sa_graph
         self.copies = copies
-        self.bus_width = 16
+        self.bus_width = 32
         self.acc_data_in_width = self.bus_width
         self.acc_data_out_width = self.bus_width
         self.axi_bus_data_width = self.acc_data_in_width

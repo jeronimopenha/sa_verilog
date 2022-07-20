@@ -152,8 +152,10 @@ class SAComponents:
         wr_addr = m.Input('wr_addr', depth)
         wr_data = m.Input('wr_data', width)
 
-        # m.EmbeddedCode('*rom_style = "block" *) reg [%d-1:0] mem[0:2**%d-1];'%(width,depth))
+        m.EmbeddedCode('(*rom_style = "block" *) reg [%d-1:0] mem[0:2**%d-1];' % (width, depth))
+        m.EmbeddedCode('/*')
         mem = m.Reg('mem', width, Power(2, depth))
+        m.EmbeddedCode('*/')
 
         out0.assign(mem[rd_addr0])
         out1.assign(mem[rd_addr1])
@@ -220,8 +222,10 @@ class SAComponents:
         read_pointer = m.Reg('read_pointer', FIFO_DEPTH_BITS)
         write_pointer = m.Reg('write_pointer', FIFO_DEPTH_BITS)
 
-        # m.EmbeddedCode('*rom_style = "block" *) reg [FIFO_WIDTH-1:0] mem[0:2**FIFO_DEPTH_BITS-1];')
+        m.EmbeddedCode('(*rom_style = "block" *) reg [FIFO_WIDTH-1:0] mem[0:2**FIFO_DEPTH_BITS-1];')
+        m.EmbeddedCode('/*')
         mem = m.Reg('mem', FIFO_WIDTH, Power(2, FIFO_DEPTH_BITS))
+        m.EmbeddedCode('*/')
 
         m.Always(Posedge(clk))(
             If(rst)(

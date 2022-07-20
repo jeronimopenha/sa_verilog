@@ -10,6 +10,7 @@ class SaAws:
         self.sa_graph = sa_graph
         # self.copies = copies
         self.bus_width = bus_width
+        self.pipe_width = 16
         self.sa_components = _sa.SAComponents(sa_graph)
         return self.__create_sa_aws()
 
@@ -57,9 +58,9 @@ class SaAws:
 
         pop_data = m.Reg('pop_data')
         available_pop = m.Wire('available_pop')
-        data_out = m.Wire('data_out', self.bus_width)
+        data_out = m.Wire('data_out', self.pipe_width)
         # config_valid = m.Reg('config_valid')
-        config_data = m.Reg('config_data', self.bus_width)
+        config_data = m.Reg('config_data', self.pipe_width)
 
         fsm_sd = m.Reg('fms_sd', 2)
         fsm_sd_idle = m.Localparam('fsm_sd_idle', 0, 2)
@@ -156,7 +157,7 @@ class SaAws:
         m.EmbeddedCode('//Data Consumer - Begin')
         # Data Consumer - End ------------------------------------------------------------------------------------------
 
-        fetch_data = self.sa_components.create_fecth_data(self.bus_width, self.bus_width)
+        fetch_data = self.sa_components.create_fecth_data(self.bus_width, self.pipe_width)
         par = []
         con = [
             ('clk', clk),
