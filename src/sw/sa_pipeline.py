@@ -20,7 +20,7 @@ import src.utils.util as _u
 
 if __name__ == '__main__':
     n_threads = 6
-    sa_graph = _u.SaGraph('dot/mac.dot')
+    sa_graph = _u.SaGraph(os.getcwd() + '/../../dot/mac.dot')
     print(sa_graph.nodes)
     print(sa_graph.neighbors)
 
@@ -36,7 +36,7 @@ if __name__ == '__main__':
     st9 = _st9.St9()
     st10 = _st10.St10()
 
-    for i in range(288*1000):
+    for i in range(288 * 1000):
         th.execute()
         st1.execute(th.output, st9.output, st1.output['wb'])
         st2.execute(st1.output)

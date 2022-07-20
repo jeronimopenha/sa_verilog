@@ -53,6 +53,8 @@ class SaAws:
 
         sa_aws_done.assign(Uand(Cat(sa_aws_done_wr_data, sa_aws_done_rd_data)))
 
+        start_pipe = m.Reg('start_pipe')
+
         pop_data = m.Reg('pop_data')
         available_pop = m.Wire('available_pop')
         data_out = m.Wire('data_out', self.bus_width)
@@ -62,11 +64,12 @@ class SaAws:
         fsm_sd = m.Reg('fms_sd', 2)
         fsm_sd_idle = m.Localparam('fsm_sd_idle', 0, 2)
         fsm_sd_send_data = m.Localparam('fsm_sd_send_data', 1, 2)
+        fsm_sd_done = m.Localparam('fsm_sd_done', 2, 2)
         flag = m.Reg('flag')
 
         sa_done = m.Wire('sa_done')
         sa_rd = m.Reg('sa_rd')
-        sa_rd_addr = m.Reg('sa_rd_addr', c_bits + 1)
+        sa_rd_addr = m.Reg('sa_rd_addr', t_bits + c_bits + 1)
         sa_out_v = m.Wire('sa_out_v')
         sa_out_data = m.Wire('sa_out_data', node_bits + 1)
 
@@ -76,6 +79,7 @@ class SaAws:
                 fsm_sd(fsm_sd_idle),
                 flag(0)
             ).Elif(start)(
+                start_pipe(0),
                 pop_data(0),
                 flag(0),
                 Case(fsm_sd)(
@@ -87,13 +91,16 @@ class SaAws:
                         )
                     ),
                     When(fsm_sd_send_data)(
-                        If(available_pop | flag)(
-                            config_data(data_out),
-                            pop_data(1),
-                        ).Else(
-                            fsm_sd(fsm_sd_idle)
-                        )
+                        # If(available_pop | flag)(
+                        config_data(data_out),
+                        # pop_data(1),
+                        # ).Else(
+                        fsm_sd(fsm_sd_done)
+                        # )
                     ),
+                    When(fsm_sd_done)(
+                        start_pipe(1)
+                    )
                 )
             )
         )
@@ -127,11 +134,11 @@ class SaAws:
                     ),
                     When(fsm_consume_consume)(
                         If(sa_out_v)(
-                            sa_aws_write_data(sa_out_data),
+                            sa_aws_request_write(1),
+                            sa_aws_write_data(Cat(Int(0, self.bus_width - sa_out_data.width, 10), sa_out_data)),
                             sa_rd_addr.inc(),
                             fsm_consume(fsm_consume_verify)
                         ),
-
                     ),
                     When(fsm_consume_verify)(
                         If(sa_rd_addr == pow(2, t_bits + c_bits))(
@@ -169,11 +176,11 @@ class SaAws:
         con = [
             ('clk', clk),
             ('rst', rst),
-            ('start', start),
+            ('start', start_pipe),
             ('n_exec', config_data),
             ('done', sa_done),
             ('rd', sa_rd),
-            ('rd_addr', sa_rd_addr),
+            ('rd_addr', sa_rd_addr[:t_bits + c_bits]),
             ('out_v', sa_out_v),
             ('out_data', sa_out_data),
         ]

@@ -171,7 +171,7 @@ def bits(n):
         return int(ceil(log2(n)))
 
 
-def create_rom_files(sa_comp):
+def create_rom_files(sa_comp, path:str):
     sa_graph = sa_comp.sa_graph
     n_cells = sa_comp.sa_graph.n_cells
     n_neighbors = sa_comp.n_neighbors
@@ -227,13 +227,13 @@ def create_rom_files(sa_comp):
             if n_c[t][nci] is not None:
                 nc_w[t][nci] = nc_str_f.format(n_c[t][nci])
 
-    with open(os.getcwd() + '/rom/th.rom', 'w') as f:
+    with open(path + '/th.rom', 'w') as f:
         for i in range(pow(2, ceil(sqrt(n_threads)))):
             f.write(str(0))
             f.write('\n')
         f.close()
 
-    with open(os.getcwd() + '/rom/n_c.rom', 'w') as f:
+    with open(path + '/n_c.rom', 'w') as f:
         for t in nc_w:
             for d in t:
                 f.write(d)
@@ -243,7 +243,7 @@ def create_rom_files(sa_comp):
                 f.write(nc_str_f.format(0))
                 f.write('\n')
         f.close()
-    with open(os.getcwd() + '/rom/c_n.rom', 'w') as f:
+    with open(path + '/c_n.rom', 'w') as f:
         for t in cn_w:
             for d in t:
                 f.write(d)
@@ -255,7 +255,7 @@ def create_rom_files(sa_comp):
         f.close()
 
     for i in range(n_neighbors):
-        with open(os.getcwd() + '/rom/n%d.rom' % i, 'w') as f:
+        with open(path + '/n%d.rom' % i, 'w') as f:
             for c in range(n_cells):
                 f.write(n_w[c][i])
                 f.write('\n')

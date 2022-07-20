@@ -107,7 +107,7 @@ class SAComponents:
                     When(1)(
                         If(pop_data & ~count[NUM - 1])(
                             count(count << 1),
-                            data(data[output_data_width:])
+                            data(data[output_data_width:]) if output_data_width < input_data_width else data(data)
                         ),
                         If(pop_data & count[NUM - 1] & has_buffer)(
                             count(1),
@@ -116,7 +116,7 @@ class SAComponents:
                         ),
                         If(count[NUM - 1] & pop_data & ~has_buffer)(
                             count(count << 1),
-                            data(data[output_data_width:]),
+                            data(data[output_data_width:]) if output_data_width < input_data_width else data(data),
                             available_pop(0),
                             fsm_control(0)
                         )
@@ -413,7 +413,7 @@ class SAComponents:
         )
 
         par = [
-            ('init_file', './rom/th.rom'),
+            ('init_file', './th.rom'),
             ('read_f', 1),
             ('write_f', 0)
         ]
@@ -458,7 +458,7 @@ class SAComponents:
 
         # output_data_interface
         rd = m.Input('rd')
-        rd_addr = m.Input('rd_addr', c_bits)
+        rd_addr = m.Input('rd_addr', t_bits + c_bits)
         out_v = m.OutputReg('out_v')
         out_data = m.OutputReg('out_data', node_bits + 1)
 
@@ -589,10 +589,10 @@ class SAComponents:
         )
 
         par = [
-            ('init_file', './rom/c_n.rom'),
+            ('init_file', './c_n.rom'),
             ('read_f', 1),
             ('write_f', 1),
-            ('output_file', './rom/c_n_out.rom')
+            ('output_file', './c_n_out.rom')
         ]
         con = [
             ('clk', clk),
@@ -735,7 +735,7 @@ class SAComponents:
 
         for i in range(n_neighbors):
             par = [
-                ('init_file', './rom/n%d.rom' % i),
+                ('init_file', './n%d.rom' % i),
                 ('read_f', 1),
                 ('write_f', 0)
             ]
@@ -872,10 +872,10 @@ class SAComponents:
 
         for i in range(n_neighbors):
             par = [
-                ('init_file', './rom/n_c.rom'),
+                ('init_file', './n_c.rom'),
                 ('read_f', 1),
                 ('write_f', 1 if i == 0 else 0),
-                ('output_file', './rom/n_c_out.rom')
+                ('output_file', './n_c_out.rom')
             ]
             con = [
                 ('clk', clk),
@@ -1404,7 +1404,7 @@ class SAComponents:
 
         # output_data_interface
         rd = m.Input('rd')
-        rd_addr = m.Input('rd_addr', c_bits)
+        rd_addr = m.Input('rd_addr', t_bits + c_bits)
         out_v = m.Output('out_v')
         out_data = m.Output('out_data', node_bits + 1)
         m.EmbeddedCode('// -----')
@@ -1425,7 +1425,7 @@ class SAComponents:
             If(rst)(
                 counter_total(0),
                 done(0),
-            ).Else(
+            ).Elif(pipe_start)(
                 If(AndList(th_idx == n_threads - 1, ~th_v, Uand(Cat(th_ca, th_cb))))(
                     counter_total.inc(),
                 ),

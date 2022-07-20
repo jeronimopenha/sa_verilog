@@ -26,7 +26,6 @@ module test_bench_sa_acc
       start <= 0;
       sa_aws_read_data_valid <= 0;
       sa_aws_done_rd_data <= 0;
-      sa_aws_done_wr_data <= 0;
       fsm_produce_data <= fsm_produce;
     end else begin
       start <= 1;
@@ -49,8 +48,7 @@ module test_bench_sa_acc
   reg [8-1:0] rd_counter;
   reg [2-1:0] fsm_consume_data;
   localparam fsm_consume_data_rd = 0;
-  localparam fsm_consume_data_show = 1;
-  localparam fsm_consume_data_done = 2;
+  localparam fsm_consume_data_done = 1;
 
   always @(posedge clk) begin
     if(rst) begin
@@ -64,7 +62,7 @@ module test_bench_sa_acc
           sa_aws_available_write <= 1;
           if(sa_aws_request_write) begin
             rd_counter <= rd_counter + 1;
-            $display(sa_aws_write_data);
+            $display("%b", sa_aws_write_data);
             if(rd_counter == 127) begin
               sa_aws_available_write <= 0;
               fsm_consume_data <= fsm_consume_data_done;
@@ -92,7 +90,8 @@ module test_bench_sa_acc
     .sa_aws_read_data(sa_aws_read_data),
     .sa_aws_available_write(sa_aws_available_write),
     .sa_aws_request_write(sa_aws_request_write),
-    .sa_aws_write_data(sa_aws_write_data)
+    .sa_aws_write_data(sa_aws_write_data),
+    .sa_aws_done(sa_aws_done)
   );
 
 
@@ -122,8 +121,6 @@ module test_bench_sa_acc
     @(posedge clk);
     @(posedge clk);
     rst = 0;
-    #500;
-    $finish;
   end
 
   always #5clk=~clk;
@@ -159,6 +156,7 @@ module sa_aws
 );
 
   assign sa_aws_done = &{ sa_aws_done_wr_data, sa_aws_done_rd_data };
+  reg start_pipe;
   reg pop_data;
   wire available_pop;
   wire [16-1:0] data_out;
@@ -166,10 +164,11 @@ module sa_aws
   reg [2-1:0] fms_sd;
   localparam [2-1:0] fsm_sd_idle = 0;
   localparam [2-1:0] fsm_sd_send_data = 1;
+  localparam [2-1:0] fsm_sd_done = 2;
   reg flag;
   wire sa_done;
   reg sa_rd;
-  reg [5-1:0] sa_rd_addr;
+  reg [8-1:0] sa_rd_addr;
   wire sa_out_v;
   wire [5-1:0] sa_out_data;
 
@@ -180,6 +179,7 @@ module sa_aws
       flag <= 0;
     end else begin
       if(start) begin
+        start_pipe <= 0;
         pop_data <= 0;
         flag <= 0;
         case(fms_sd)
@@ -191,12 +191,11 @@ module sa_aws
             end 
           end
           fsm_sd_send_data: begin
-            if(available_pop | flag) begin
-              config_data <= data_out;
-              pop_data <= 1;
-            end else begin
-              fms_sd <= fsm_sd_idle;
-            end
+            config_data <= data_out;
+            fms_sd <= fsm_sd_done;
+          end
+          fsm_sd_done: begin
+            start_pipe <= 1;
           end
         endcase
       end 
@@ -231,6 +230,7 @@ module sa_aws
         end
         fsm_consume_consume: begin
           if(sa_out_v) begin
+            sa_aws_request_write <= 1;
             sa_aws_write_data <= sa_out_data;
             sa_rd_addr <= sa_rd_addr + 1;
             fsm_consume <= fsm_consume_verify;
@@ -272,11 +272,11 @@ module sa_aws
   (
     .clk(clk),
     .rst(rst),
-    .start(start),
+    .start(start_pipe),
     .n_exec(config_data),
     .done(sa_done),
     .rd(sa_rd),
-    .rd_addr(sa_rd_addr),
+    .rd_addr(sa_rd_addr[6:0]),
     .out_v(sa_out_v),
     .out_data(sa_out_data)
   );
@@ -285,6 +285,7 @@ module sa_aws
   initial begin
     sa_aws_request_write = 0;
     sa_aws_write_data = 0;
+    start_pipe = 0;
     pop_data = 0;
     config_data = 0;
     fms_sd = 0;
@@ -380,7 +381,7 @@ module fecth_data_16_16
         1: begin
           if(pop_data & ~count[0]) begin
             count <= count << 1;
-            data <= data[15:16];
+            data <= data;
           end 
           if(pop_data & count[0] & has_buffer) begin
             count <= 1;
@@ -389,7 +390,7 @@ module fecth_data_16_16
           end 
           if(count[0] & pop_data & ~has_buffer) begin
             count <= count << 1;
-            data <= data[15:16];
+            data <= data;
             available_pop <= 0;
             fsm_control <= 0;
           end 
@@ -425,7 +426,7 @@ module sa_pipeline_6th_16cells
   input [16-1:0] n_exec,
   output reg done,
   input rd,
-  input [4-1:0] rd_addr,
+  input [7-1:0] rd_addr,
   output out_v,
   output [5-1:0] out_data
 );
@@ -446,11 +447,13 @@ module sa_pipeline_6th_16cells
       counter_total <= 0;
       done <= 0;
     end else begin
-      if((th_idx == 5) && ~th_v && &{ th_ca, th_cb }) begin
-        counter_total <= counter_total + 1;
-      end 
-      if(counter_total == n_exec) begin
-        done <= 1;
+      if(pipe_start) begin
+        if((th_idx == 5) && ~th_v && &{ th_ca, th_cb }) begin
+          counter_total <= counter_total + 1;
+        end 
+        if(counter_total == n_exec) begin
+          done <= 1;
+        end 
       end 
     end
   end
@@ -853,7 +856,7 @@ module th_controller_6th_16cells
 
   mem_2r_1w_width8_depth3
   #(
-    .init_file("./rom/th.rom"),
+    .init_file("./th.rom"),
     .read_f(1),
     .write_f(0)
   )
@@ -937,7 +940,7 @@ module st1_c2n_6th_16cells
   input clk,
   input rst,
   input rd,
-  input [4-1:0] rd_addr,
+  input [7-1:0] rd_addr,
   output reg out_v,
   output reg [5-1:0] out_data,
   input [3-1:0] idx_in,
@@ -1051,10 +1054,10 @@ module st1_c2n_6th_16cells
 
   mem_2r_1w_width5_depth7
   #(
-    .init_file("./rom/c_n.rom"),
+    .init_file("./c_n.rom"),
     .read_f(1),
     .write_f(1),
-    .output_file("./rom/c_n_out.rom")
+    .output_file("./c_n_out.rom")
   )
   mem_2r_1w_width5_depth7
   (
@@ -1334,7 +1337,7 @@ module st2_n_6th_16cells
 
   mem_2r_1w_width5_depth4
   #(
-    .init_file("./rom/n0.rom"),
+    .init_file("./n0.rom"),
     .read_f(1),
     .write_f(0)
   )
@@ -1353,7 +1356,7 @@ module st2_n_6th_16cells
 
   mem_2r_1w_width5_depth4
   #(
-    .init_file("./rom/n1.rom"),
+    .init_file("./n1.rom"),
     .read_f(1),
     .write_f(0)
   )
@@ -1372,7 +1375,7 @@ module st2_n_6th_16cells
 
   mem_2r_1w_width5_depth4
   #(
-    .init_file("./rom/n2.rom"),
+    .init_file("./n2.rom"),
     .read_f(1),
     .write_f(0)
   )
@@ -1391,7 +1394,7 @@ module st2_n_6th_16cells
 
   mem_2r_1w_width5_depth4
   #(
-    .init_file("./rom/n3.rom"),
+    .init_file("./n3.rom"),
     .read_f(1),
     .write_f(0)
   )
@@ -1563,10 +1566,10 @@ module st3_n2c_6th_16cells
 
   mem_2r_1w_width4_depth7
   #(
-    .init_file("./rom/n_c.rom"),
+    .init_file("./n_c.rom"),
     .read_f(1),
     .write_f(1),
-    .output_file("./rom/n_c_out.rom")
+    .output_file("./n_c_out.rom")
   )
   mem_2r_1w_width4_depth7_0
   (
@@ -1583,10 +1586,10 @@ module st3_n2c_6th_16cells
 
   mem_2r_1w_width4_depth7
   #(
-    .init_file("./rom/n_c.rom"),
+    .init_file("./n_c.rom"),
     .read_f(1),
     .write_f(0),
-    .output_file("./rom/n_c_out.rom")
+    .output_file("./n_c_out.rom")
   )
   mem_2r_1w_width4_depth7_1
   (
@@ -1603,10 +1606,10 @@ module st3_n2c_6th_16cells
 
   mem_2r_1w_width4_depth7
   #(
-    .init_file("./rom/n_c.rom"),
+    .init_file("./n_c.rom"),
     .read_f(1),
     .write_f(0),
-    .output_file("./rom/n_c_out.rom")
+    .output_file("./n_c_out.rom")
   )
   mem_2r_1w_width4_depth7_2
   (
@@ -1623,10 +1626,10 @@ module st3_n2c_6th_16cells
 
   mem_2r_1w_width4_depth7
   #(
-    .init_file("./rom/n_c.rom"),
+    .init_file("./n_c.rom"),
     .read_f(1),
     .write_f(0),
-    .output_file("./rom/n_c_out.rom")
+    .output_file("./n_c_out.rom")
   )
   mem_2r_1w_width4_depth7_3
   (

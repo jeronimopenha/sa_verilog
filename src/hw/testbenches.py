@@ -155,6 +155,8 @@ def create_sa_verilog_test_bench(sa_comp: _sa.SAComponents) -> str:
 
 
 def create_sa_aws_test_bench(comp: _comp.SAComponents) -> str:
+    _u.create_rom_files(comp, os.getcwd() + "/verilog")
+
     bus_width = 16
     sa_graph = comp.sa_graph
     n_cells = comp.n_cells
@@ -195,7 +197,6 @@ def create_sa_aws_test_bench(comp: _comp.SAComponents) -> str:
             start(0),
             sa_aws_read_data_valid(0),
             sa_aws_done_rd_data(0),
-            sa_aws_done_wr_data(0),
             fsm_produce_data(fsm_produce),
         ).Else(
             start(1),
@@ -219,8 +220,7 @@ def create_sa_aws_test_bench(comp: _comp.SAComponents) -> str:
 
     fsm_consume_data = m.Reg('fsm_consume_data', 2)
     fsm_consume_data_rd = m.Localparam('fsm_consume_data_rd', 0)
-    fsm_consume_data_show = m.Localparam('fsm_consume_data_show', 1)
-    fsm_consume_data_done = m.Localparam('fsm_consume_data_done', 2)
+    fsm_consume_data_done = m.Localparam('fsm_consume_data_done', 1)
 
     m.Always(Posedge(clk))(
         If(rst)(
@@ -234,7 +234,7 @@ def create_sa_aws_test_bench(comp: _comp.SAComponents) -> str:
                     sa_aws_available_write(1),
                     If(sa_aws_request_write)(
                         rd_counter.inc(),
-                        Display(sa_aws_write_data),
+                        Display('%b', sa_aws_write_data),
                         If(rd_counter == pow(2, t_bits + c_bits) - 1)(
                             sa_aws_available_write(0),
                             fsm_consume_data(fsm_consume_data_done),
@@ -261,6 +261,7 @@ def create_sa_aws_test_bench(comp: _comp.SAComponents) -> str:
         ('sa_aws_available_write', sa_aws_available_write),
         ('sa_aws_request_write', sa_aws_request_write),
         ('sa_aws_write_data', sa_aws_write_data),
+        ('sa_aws_done', sa_aws_done)
     ]
     aws = _aws.SaAws()
     aux = aws.get(comp.sa_graph, bus_width)
@@ -273,7 +274,7 @@ def create_sa_aws_test_bench(comp: _comp.SAComponents) -> str:
         EmbeddedCode('@(posedge clk);'),
         EmbeddedCode('@(posedge clk);'),
         rst(0),
-        Delay(500), Finish()
+        # Delay(40000), Finish()
     )
     m.EmbeddedCode('always #5clk=~clk;')
     m.Always(Posedge(clk))(
