@@ -1,3 +1,0 @@
-[connectivity]
-sp=sa_64_1.in0:DDR[0]
-sp=sa_64_1.out0:DDR[0]

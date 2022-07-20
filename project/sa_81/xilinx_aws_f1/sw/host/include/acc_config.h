@@ -1,7 +1,0 @@
-#define NUM_CHANNELS (1)
-#define NUM_THREADS (1)
-#define NUM_NOS (5)
-#define STATE_SIZE_WORDS (1)
-#define BUS_WIDTH_BYTES (2)
-#define OUTPUT_DATA_BYTES (8)
-#define ACC_DATA_BYTES (2)
