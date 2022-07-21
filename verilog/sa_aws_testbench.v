@@ -231,7 +231,7 @@ module sa_aws
         fsm_consume_consume: begin
           if(sa_out_v) begin
             sa_aws_request_write <= 1;
-            sa_aws_write_data <= sa_out_data;
+            sa_aws_write_data <= { 11'd0, sa_out_data };
             sa_rd_addr <= sa_rd_addr + 1;
             fsm_consume <= fsm_consume_verify;
           end 
@@ -904,7 +904,10 @@ module mem_2r_1w_width8_depth3 #
   input [8-1:0] wr_data
 );
 
+  (*rom_style = "block" *) reg [8-1:0] mem[0:2**3-1];
+  /*
   reg [8-1:0] mem [0:2**3-1];
+  */
   assign out0 = mem[rd_addr0];
   assign out1 = mem[rd_addr1];
 
@@ -1147,7 +1150,10 @@ module mem_2r_1w_width5_depth7 #
   input [5-1:0] wr_data
 );
 
+  (*rom_style = "block" *) reg [5-1:0] mem[0:2**7-1];
+  /*
   reg [5-1:0] mem [0:2**7-1];
+  */
   assign out0 = mem[rd_addr0];
   assign out1 = mem[rd_addr1];
 
@@ -1202,7 +1208,10 @@ module fifo #
 
   reg [FIFO_DEPTH_BITS-1:0] read_pointer;
   reg [FIFO_DEPTH_BITS-1:0] write_pointer;
+  (*rom_style = "block" *) reg [FIFO_WIDTH-1:0] mem[0:2**FIFO_DEPTH_BITS-1];
+  /*
   reg [FIFO_WIDTH-1:0] mem [0:2**FIFO_DEPTH_BITS-1];
+  */
 
   always @(posedge clk) begin
     if(rst) begin
@@ -1452,7 +1461,10 @@ module mem_2r_1w_width5_depth4 #
   input [5-1:0] wr_data
 );
 
+  (*rom_style = "block" *) reg [5-1:0] mem[0:2**4-1];
+  /*
   reg [5-1:0] mem [0:2**4-1];
+  */
   assign out0 = mem[rd_addr0];
   assign out1 = mem[rd_addr1];
 
@@ -1680,7 +1692,10 @@ module mem_2r_1w_width4_depth7 #
   input [4-1:0] wr_data
 );
 
+  (*rom_style = "block" *) reg [4-1:0] mem[0:2**7-1];
+  /*
   reg [4-1:0] mem [0:2**7-1];
+  */
   assign out0 = mem[rd_addr0];
   assign out1 = mem[rd_addr1];
 
