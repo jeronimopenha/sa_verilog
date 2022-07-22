@@ -35,7 +35,6 @@ module test_bench_sa_acc
           sa_aws_read_data <= 16'd1;
           if(sa_aws_request_read && sa_aws_read_data_valid) begin
             sa_aws_read_data_valid <= 0;
-            fsm_produce_data <= fsm_done;
           end 
         end
         fsm_done: begin
@@ -121,6 +120,8 @@ module test_bench_sa_acc
     @(posedge clk);
     @(posedge clk);
     rst = 0;
+    #45000;
+    $finish;
   end
 
   always #5clk=~clk;
@@ -161,36 +162,127 @@ module sa_aws
   wire available_pop;
   wire [16-1:0] data_out;
   reg [16-1:0] config_data;
-  reg [2-1:0] fms_sd;
-  localparam [2-1:0] fsm_sd_idle = 0;
-  localparam [2-1:0] fsm_sd_send_data = 1;
-  localparam [2-1:0] fsm_sd_done = 2;
-  reg flag;
+  reg [4-1:0] fms_sd;
+  localparam [4-1:0] fsm_sd_c2n_idle = 0;
+  localparam [4-1:0] fsm_sd_c2n_send_data = 1;
+  localparam [4-1:0] fsm_sd_c2n_verify = 2;
+  localparam [4-1:0] fsm_sd_n2c_idle = 3;
+  localparam [4-1:0] fsm_sd_n2c_send_data = 4;
+  localparam [4-1:0] fsm_sd_n2c_verify = 5;
+  localparam [4-1:0] fsm_sd_n_idle = 6;
+  localparam [4-1:0] fsm_sd_n_send_data = 7;
+  localparam [4-1:0] fsm_sd_n_verify = 8;
+  localparam [4-1:0] fsm_sd_nexec_idle = 9;
+  localparam [4-1:0] fsm_sd_nexec_send_data = 10;
+  localparam [4-1:0] fsm_sd_done = 11;
   wire sa_done;
   reg sa_rd;
   reg [8-1:0] sa_rd_addr;
   wire sa_out_v;
   wire [5-1:0] sa_out_data;
+  reg st1_wr;
+  reg [7-1:0] st1_wr_addr;
+  reg [5-1:0] st1_wr_data;
+  reg [4-1:0] st2_mem_sel;
+  reg [4-1:0] st2_wr;
+  reg [4-1:0] st2_wr_addr;
+  reg [5-1:0] st2_wr_data;
+  reg st3_wr;
+  reg [7-1:0] st3_wr_addr;
+  reg [4-1:0] st3_wr_data;
 
   always @(posedge clk) begin
     if(rst) begin
+      st1_wr <= 0;
+      st1_wr_addr <= 0;
+      st1_wr_data <= 0;
+      st2_mem_sel <= 1;
+      st2_wr <= 0;
+      st2_wr_addr <= 0;
+      st2_wr_data <= 0;
+      st3_wr <= 0;
+      st3_wr_addr <= 0;
+      st3_wr_data <= 0;
       pop_data <= 0;
-      fms_sd <= fsm_sd_idle;
-      flag <= 0;
+      fms_sd <= fsm_sd_c2n_idle;
     end else begin
       if(start) begin
+        st1_wr <= 0;
+        st2_wr <= 0;
+        st3_wr <= 0;
         start_pipe <= 0;
         pop_data <= 0;
-        flag <= 0;
         case(fms_sd)
-          fsm_sd_idle: begin
+          fsm_sd_c2n_idle: begin
             if(available_pop) begin
               pop_data <= 1;
-              flag <= 1;
-              fms_sd <= fsm_sd_send_data;
+              fms_sd <= fsm_sd_c2n_send_data;
             end 
           end
-          fsm_sd_send_data: begin
+          fsm_sd_c2n_send_data: begin
+            st1_wr <= 1;
+            st1_wr_data <= data_out[4:0];
+            fms_sd <= fsm_sd_c2n_verify;
+          end
+          fsm_sd_c2n_verify: begin
+            if(&st1_wr_addr) begin
+              fms_sd <= fsm_sd_n2c_idle;
+            end else begin
+              st1_wr_addr <= st1_wr_addr + 1;
+              fms_sd <= fsm_sd_c2n_idle;
+            end
+          end
+          fsm_sd_n2c_idle: begin
+            if(available_pop) begin
+              pop_data <= 1;
+              fms_sd <= fsm_sd_n2c_send_data;
+            end 
+          end
+          fsm_sd_n2c_send_data: begin
+            st3_wr <= 1;
+            st3_wr_data <= data_out[3:0];
+            fms_sd <= fsm_sd_n2c_verify;
+          end
+          fsm_sd_n2c_verify: begin
+            if(&st3_wr_addr) begin
+              fms_sd <= fsm_sd_n_idle;
+            end else begin
+              st3_wr_addr <= st3_wr_addr + 1;
+              fms_sd <= fsm_sd_n2c_idle;
+            end
+          end
+          fsm_sd_n_idle: begin
+            if(available_pop) begin
+              pop_data <= 1;
+              fms_sd <= fsm_sd_n_send_data;
+            end 
+          end
+          fsm_sd_n_send_data: begin
+            st2_wr <= st2_mem_sel;
+            st2_wr_data <= data_out[4:0];
+            fms_sd <= fsm_sd_n_verify;
+          end
+          fsm_sd_n_verify: begin
+            if(&st2_wr_addr) begin
+              if(st2_mem_sel[3]) begin
+                fms_sd <= fsm_sd_nexec_idle;
+              end else begin
+                st2_mem_sel <= st2_mem_sel << 1;
+                st2_wr_addr <= st2_wr_addr + 1;
+                fms_sd <= fsm_sd_n_idle;
+              end
+            end else begin
+              st2_wr_addr <= st2_wr_addr + 1;
+              fms_sd <= fsm_sd_n_idle;
+            end
+          end
+          fsm_sd_nexec_idle: begin
+            if(available_pop) begin
+              pop_data <= 1;
+              fms_sd <= fsm_sd_nexec_send_data;
+            end 
+          end
+          fsm_sd_nexec_send_data: begin
             config_data <= data_out;
             fms_sd <= fsm_sd_done;
           end
@@ -270,6 +362,15 @@ module sa_aws
   sa_pipeline_6th_16cells
   sa_pipeline_6th_16cells
   (
+    .st1_wr(st1_wr),
+    .st1_wr_addr(st1_wr_addr),
+    .st1_wr_data(st1_wr_data),
+    .st2_wr(st2_wr),
+    .st2_wr_addr(st2_wr_addr),
+    .st2_wr_data(st2_wr_data),
+    .st3_wr(st3_wr),
+    .st3_wr_addr(st3_wr_addr),
+    .st3_wr_data(st3_wr_data),
     .clk(clk),
     .rst(rst),
     .start(start_pipe),
@@ -289,9 +390,18 @@ module sa_aws
     pop_data = 0;
     config_data = 0;
     fms_sd = 0;
-    flag = 0;
     sa_rd = 0;
     sa_rd_addr = 0;
+    st1_wr = 0;
+    st1_wr_addr = 0;
+    st1_wr_data = 0;
+    st2_mem_sel = 0;
+    st2_wr = 0;
+    st2_wr_addr = 0;
+    st2_wr_data = 0;
+    st3_wr = 0;
+    st3_wr_addr = 0;
+    st3_wr_data = 0;
     fsm_consume = 0;
   end
 
@@ -425,6 +535,15 @@ module sa_pipeline_6th_16cells
   input start,
   input [16-1:0] n_exec,
   output reg done,
+  input st1_wr,
+  input [7-1:0] st1_wr_addr,
+  input [5-1:0] st1_wr_data,
+  input [4-1:0] st2_wr,
+  input [4-1:0] st2_wr_addr,
+  input [5-1:0] st2_wr_data,
+  input st3_wr,
+  input [7-1:0] st3_wr_addr,
+  input [4-1:0] st3_wr_data,
   input rd,
   input [7-1:0] rd_addr,
   output out_v,
@@ -569,6 +688,9 @@ module sa_pipeline_6th_16cells
   st1_c2n_6th_16cells
   st1_c2n_6th_16cells
   (
+    .st1_wr(st1_wr),
+    .st1_wr_addr(st1_wr_addr),
+    .st1_wr_data(st1_wr_data),
     .rd(rd),
     .rd_addr(rd_addr),
     .out_v(out_v),
@@ -599,6 +721,9 @@ module sa_pipeline_6th_16cells
   st2_n_6th_16cells
   st2_n_6th_16cells
   (
+    .st2_wr(st2_wr),
+    .st2_wr_addr(st2_wr_addr),
+    .st2_wr_data(st2_wr_data),
     .clk(clk),
     .idx_in(st1_idx),
     .v_in(st1_v),
@@ -632,6 +757,9 @@ module sa_pipeline_6th_16cells
   st3_n2c_6th_16cells
   st3_n2c_6th_16cells
   (
+    .st3_wr(st3_wr),
+    .st3_wr_addr(st3_wr_addr),
+    .st3_wr_data(st3_wr_data),
     .clk(clk),
     .rst(rst),
     .idx_in(st2_idx),
@@ -921,7 +1049,7 @@ module mem_2r_1w_width8_depth3 #
 
   always @(posedge clk) begin
     if(wr && write_f) begin
-      $writememh(output_file, mem);
+      $writememb(output_file, mem);
     end 
   end
 
@@ -929,7 +1057,7 @@ module mem_2r_1w_width8_depth3 #
 
   initial begin
     if(read_f) begin
-      $readmemh(init_file, mem);
+      $readmemb(init_file, mem);
     end 
   end
 
@@ -942,6 +1070,9 @@ module st1_c2n_6th_16cells
 (
   input clk,
   input rst,
+  input st1_wr,
+  input [7-1:0] st1_wr_addr,
+  input [5-1:0] st1_wr_data,
   input rd,
   input [7-1:0] rd_addr,
   output reg out_v,
@@ -1069,9 +1200,9 @@ module st1_c2n_6th_16cells
     .rd_addr1({ idx_in, cb_in }),
     .out0({ na_v_t, na_t }),
     .out1({ nb_v_t, nb_t }),
-    .wr(m_wr),
-    .wr_addr(m_wr_addr),
-    .wr_data(m_wr_data)
+    .wr(|{ m_wr, st1_wr }),
+    .wr_addr((st1_wr)? st1_wr_addr : m_wr_addr),
+    .wr_data((st1_wr)? st1_wr_data : m_wr_data)
   );
 
 
@@ -1167,7 +1298,7 @@ module mem_2r_1w_width5_depth7 #
 
   always @(posedge clk) begin
     if(wr && write_f) begin
-      $writememh(output_file, mem);
+      $writememb(output_file, mem);
     end 
   end
 
@@ -1175,7 +1306,7 @@ module mem_2r_1w_width5_depth7 #
 
   initial begin
     if(read_f) begin
-      $readmemh(init_file, mem);
+      $readmemb(init_file, mem);
     end 
   end
 
@@ -1288,6 +1419,9 @@ endmodule
 module st2_n_6th_16cells
 (
   input clk,
+  input [4-1:0] st2_wr,
+  input [4-1:0] st2_wr_addr,
+  input [5-1:0] st2_wr_data,
   input [3-1:0] idx_in,
   input v_in,
   input [4-1:0] ca_in,
@@ -1315,6 +1449,7 @@ module st2_n_6th_16cells
   output reg [12-1:0] wa_out,
   output reg [12-1:0] wb_out
 );
+
 
   wire [16-1:0] va_t;
   wire [4-1:0] va_v_t;
@@ -1357,9 +1492,9 @@ module st2_n_6th_16cells
     .rd_addr1(nb_in),
     .out0({ va_v_m[0], va_t[3:0] }),
     .out1({ vb_v_m[0], vb_t[3:0] }),
-    .wr(1'b0),
-    .wr_addr(4'b0),
-    .wr_data(5'b0)
+    .wr(st2_wr[0]),
+    .wr_addr(st2_wr_addr),
+    .wr_data(st2_wr_data)
   );
 
 
@@ -1376,9 +1511,9 @@ module st2_n_6th_16cells
     .rd_addr1(nb_in),
     .out0({ va_v_m[1], va_t[7:4] }),
     .out1({ vb_v_m[1], vb_t[7:4] }),
-    .wr(1'b0),
-    .wr_addr(4'b0),
-    .wr_data(5'b0)
+    .wr(st2_wr[1]),
+    .wr_addr(st2_wr_addr),
+    .wr_data(st2_wr_data)
   );
 
 
@@ -1395,9 +1530,9 @@ module st2_n_6th_16cells
     .rd_addr1(nb_in),
     .out0({ va_v_m[2], va_t[11:8] }),
     .out1({ vb_v_m[2], vb_t[11:8] }),
-    .wr(1'b0),
-    .wr_addr(4'b0),
-    .wr_data(5'b0)
+    .wr(st2_wr[2]),
+    .wr_addr(st2_wr_addr),
+    .wr_data(st2_wr_data)
   );
 
 
@@ -1414,9 +1549,9 @@ module st2_n_6th_16cells
     .rd_addr1(nb_in),
     .out0({ va_v_m[3], va_t[15:12] }),
     .out1({ vb_v_m[3], vb_t[15:12] }),
-    .wr(1'b0),
-    .wr_addr(4'b0),
-    .wr_data(5'b0)
+    .wr(st2_wr[3]),
+    .wr_addr(st2_wr_addr),
+    .wr_data(st2_wr_data)
   );
 
 
@@ -1478,7 +1613,7 @@ module mem_2r_1w_width5_depth4 #
 
   always @(posedge clk) begin
     if(wr && write_f) begin
-      $writememh(output_file, mem);
+      $writememb(output_file, mem);
     end 
   end
 
@@ -1486,7 +1621,7 @@ module mem_2r_1w_width5_depth4 #
 
   initial begin
     if(read_f) begin
-      $readmemh(init_file, mem);
+      $readmemb(init_file, mem);
     end 
   end
 
@@ -1499,6 +1634,9 @@ module st3_n2c_6th_16cells
 (
   input clk,
   input rst,
+  input st3_wr,
+  input [7-1:0] st3_wr_addr,
+  input [4-1:0] st3_wr_data,
   input [3-1:0] idx_in,
   input v_in,
   input [4-1:0] ca_in,
@@ -1590,9 +1728,9 @@ module st3_n2c_6th_16cells
     .rd_addr1({ idx_in, vb_in[3:0] }),
     .out0(cva_t[3:0]),
     .out1(cvb_t[3:0]),
-    .wr(m_wr),
-    .wr_addr(m_wr_addr),
-    .wr_data(m_wr_data)
+    .wr(|{ m_wr, st3_wr }),
+    .wr_addr((st3_wr)? st3_wr_addr : m_wr_addr),
+    .wr_data((st3_wr)? st3_wr_data : m_wr_data)
   );
 
 
@@ -1610,9 +1748,9 @@ module st3_n2c_6th_16cells
     .rd_addr1({ idx_in, vb_in[7:4] }),
     .out0(cva_t[7:4]),
     .out1(cvb_t[7:4]),
-    .wr(m_wr),
-    .wr_addr(m_wr_addr),
-    .wr_data(m_wr_data)
+    .wr(|{ m_wr, st3_wr }),
+    .wr_addr((st3_wr)? st3_wr_addr : m_wr_addr),
+    .wr_data((st3_wr)? st3_wr_data : m_wr_data)
   );
 
 
@@ -1630,9 +1768,9 @@ module st3_n2c_6th_16cells
     .rd_addr1({ idx_in, vb_in[11:8] }),
     .out0(cva_t[11:8]),
     .out1(cvb_t[11:8]),
-    .wr(m_wr),
-    .wr_addr(m_wr_addr),
-    .wr_data(m_wr_data)
+    .wr(|{ m_wr, st3_wr }),
+    .wr_addr((st3_wr)? st3_wr_addr : m_wr_addr),
+    .wr_data((st3_wr)? st3_wr_data : m_wr_data)
   );
 
 
@@ -1650,9 +1788,9 @@ module st3_n2c_6th_16cells
     .rd_addr1({ idx_in, vb_in[15:12] }),
     .out0(cva_t[15:12]),
     .out1(cvb_t[15:12]),
-    .wr(m_wr),
-    .wr_addr(m_wr_addr),
-    .wr_data(m_wr_data)
+    .wr(|{ m_wr, st3_wr }),
+    .wr_addr((st3_wr)? st3_wr_addr : m_wr_addr),
+    .wr_data((st3_wr)? st3_wr_data : m_wr_data)
   );
 
 
@@ -1709,7 +1847,7 @@ module mem_2r_1w_width4_depth7 #
 
   always @(posedge clk) begin
     if(wr && write_f) begin
-      $writememh(output_file, mem);
+      $writememb(output_file, mem);
     end 
   end
 
@@ -1717,7 +1855,7 @@ module mem_2r_1w_width4_depth7 #
 
   initial begin
     if(read_f) begin
-      $readmemh(init_file, mem);
+      $readmemb(init_file, mem);
     end 
   end
 

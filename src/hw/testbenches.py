@@ -206,7 +206,7 @@ def create_sa_aws_test_bench(comp: _comp.SAComponents) -> str:
                     sa_aws_read_data(Int(1, 16, 10)),
                     If(AndList(sa_aws_request_read, sa_aws_read_data_valid))(
                         sa_aws_read_data_valid(0),
-                        fsm_produce_data(fsm_done)
+                        #fsm_produce_data(fsm_done)
                     ),
                 ),
                 When(fsm_done)(
@@ -274,7 +274,7 @@ def create_sa_aws_test_bench(comp: _comp.SAComponents) -> str:
         EmbeddedCode('@(posedge clk);'),
         EmbeddedCode('@(posedge clk);'),
         rst(0),
-        # Delay(40000), Finish()
+        Delay(40000), Finish()
     )
     m.EmbeddedCode('always #5clk=~clk;')
     m.Always(Posedge(clk))(
