@@ -169,14 +169,14 @@ class SAComponents:
         m.EmbeddedCode('//synthesis translate_off')
         m.Always(Posedge(clk))(
             If(AndList(wr, write_f))(
-                Systask('writememh', output_file, mem)
+                Systask('writememb', output_file, mem)
             ),
         )
         m.EmbeddedCode('//synthesis translate_on')
 
         m.Initial(
             If(read_f)(
-                Systask('readmemh', init_file, mem),
+                Systask('readmemb', init_file, mem),
             )
         )
 
@@ -188,7 +188,7 @@ class SAComponents:
             For(i(0), i < Power(2, depth), i.inc())(
                 mem[i](0)
             ),
-            Systask('readmemh', init_file, mem)
+            Systask('readmemb', init_file, mem)
         )
         m.EmbeddedCode('//synthesis translate_on')'''
         self.cache[name] = m
@@ -460,6 +460,11 @@ class SAComponents:
         clk = m.Input('clk')
         rst = m.Input('rst')
 
+        # input config interfaces
+        st1_wr = m.Input('st1_wr')
+        st1_wr_addr = m.Input('st1_wr_addr', t_bits + c_bits)
+        st1_wr_data = m.Input('st1_wr_data', node_bits + 1)
+
         # output_data_interface
         rd = m.Input('rd')
         rd_addr = m.Input('rd_addr', t_bits + c_bits)
@@ -604,9 +609,9 @@ class SAComponents:
             ('rd_addr1', Cat(idx_in, cb_in)),
             ('out0', Cat(na_v_t, na_t)),
             ('out1', Cat(nb_v_t, nb_t)),
-            ('wr', m_wr),
-            ('wr_addr', m_wr_addr),
-            ('wr_data', m_wr_data),
+            ('wr', Uor(Cat(m_wr, st1_wr))),
+            ('wr_addr', Mux(st1_wr, st1_wr_addr, m_wr_addr)),
+            ('wr_data', Mux(st1_wr, st1_wr_data, m_wr_data)),
         ]
         aux = self.create_memory_2r_1w(node_bits + 1, t_bits + c_bits)
         m.Instance(aux, aux.name, par, con)
@@ -680,6 +685,11 @@ class SAComponents:
         m = Module(name)
         clk = m.Input('clk')
 
+        # config_interface
+        st2_wr = m.Input('st2_wr', n_neighbors)
+        st2_wr_addr = m.Input('st2_wr_addr', node_bits)
+        st2_wr_data = m.Input('st2_wr_data', node_bits + 1)
+
         # interface
         idx_in = m.Input('idx_in', t_bits)
         v_in = m.Input('v_in')
@@ -708,6 +718,8 @@ class SAComponents:
         sw_out = m.OutputReg('sw_out')
         wa_out = m.OutputReg('wa_out', w_bits)
         wb_out = m.OutputReg('wb_out', w_bits)
+
+        m.EmbeddedCode('')
 
         va_t = m.Wire('va_t', node_bits * n_neighbors)
         va_v_t = m.Wire('va_v_t', n_neighbors)
@@ -749,9 +761,9 @@ class SAComponents:
                 ('rd_addr1', nb_in),
                 ('out0', Cat(va_v_m[i], va_t[node_bits * i:node_bits * (i + 1)])),
                 ('out1', Cat(vb_v_m[i], vb_t[node_bits * i:node_bits * (i + 1)])),
-                ('wr', Int(0, 1, 2)),
-                ('wr_addr', Int(0, node_bits, 2)),
-                ('wr_data', Int(0, node_bits + 1, 2)),
+                ('wr', st2_wr[i]),
+                ('wr_addr', st2_wr_addr),
+                ('wr_data', st2_wr_data),
             ]
             aux = self.create_memory_2r_1w(node_bits + 1, node_bits)
             m.Instance(aux, '%s_%i' % (aux.name, i), par, con)
@@ -782,6 +794,11 @@ class SAComponents:
         m = Module(name)
         clk = m.Input('clk')
         rst = m.Input('rst')
+
+        # config interface
+        st3_wr = m.Input('st3_wr')
+        st3_wr_addr = m.Input('st3_wr_addr', t_bits + node_bits)
+        st3_wr_data = m.Input('st3_wr_data', c_bits)
 
         # interface
         idx_in = m.Input('idx_in', t_bits)
@@ -887,9 +904,9 @@ class SAComponents:
                 ('rd_addr1', Cat(idx_in, vb_in[i * c_bits:c_bits * (i + 1)])),
                 ('out0', cva_t[i * c_bits:c_bits * (i + 1)]),
                 ('out1', cvb_t[i * c_bits:c_bits * (i + 1)]),
-                ('wr', m_wr),
-                ('wr_addr', m_wr_addr),
-                ('wr_data', m_wr_data),
+                ('wr', Uor(Cat(m_wr, st3_wr))),
+                ('wr_addr', Mux(st3_wr, st3_wr_addr, m_wr_addr)),
+                ('wr_data', Mux(st3_wr, st3_wr_data, m_wr_data)),
             ]
             aux = self.create_memory_2r_1w(c_bits, t_bits + c_bits)
             m.Instance(aux, '%s_%d' % (aux.name, i), par, con)
@@ -1406,6 +1423,19 @@ class SAComponents:
         n_exec = m.Input('n_exec', 16)
         done = m.OutputReg('done')
 
+        # input config interfaces
+        st1_wr = m.Input('st1_wr')
+        st1_wr_addr = m.Input('st1_wr_addr', t_bits + c_bits)
+        st1_wr_data = m.Input('st1_wr_data', node_bits + 1)
+
+        st2_wr = m.Input('st2_wr', n_neighbors)
+        st2_wr_addr = m.Input('st2_wr_addr', node_bits)
+        st2_wr_data = m.Input('st2_wr_data', node_bits + 1)
+
+        st3_wr = m.Input('st3_wr')
+        st3_wr_addr = m.Input('st3_wr_addr', t_bits + node_bits)
+        st3_wr_data = m.Input('st3_wr_data', c_bits)
+
         # output_data_interface
         rd = m.Input('rd')
         rd_addr = m.Input('rd_addr', t_bits + c_bits)
@@ -1579,6 +1609,9 @@ class SAComponents:
 
         par = []
         con = [
+            ('st1_wr', st1_wr),
+            ('st1_wr_addr', st1_wr_addr),
+            ('st1_wr_data', st1_wr_data),
             ('rd', rd),
             ('rd_addr', rd_addr),
             ('out_v', out_v),
@@ -1609,6 +1642,9 @@ class SAComponents:
 
         par = []
         con = [
+            ('st2_wr', st2_wr),
+            ('st2_wr_addr', st2_wr_addr),
+            ('st2_wr_data', st2_wr_data),
             ('clk', clk),
             ('idx_in', st1_idx),
             ('v_in', st1_v),
@@ -1642,6 +1678,9 @@ class SAComponents:
 
         pa = []
         con = [
+            ('st3_wr', st3_wr),
+            ('st3_wr_addr', st3_wr_addr),
+            ('st3_wr_data', st3_wr_data),
             ('clk', clk),
             ('rst', rst),
             ('idx_in', st2_idx),

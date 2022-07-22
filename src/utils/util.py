@@ -4,7 +4,9 @@ import subprocess
 import pygraphviz as pgv
 import networkx as nx
 import random
-#import src.hw.sa_components as _sa_comp
+
+
+# import src.hw.sa_components as _sa_comp
 
 # from src.hw.sa_components import SAComponents
 
@@ -35,8 +37,8 @@ class SaGraph:
         unsorted_cells = [i for i in range(self.n_cells)]
 
         while len(unsorted_nodes) > 0:
-            r_n = random.randint(0, (len(unsorted_nodes)-1))
-            r_c = random.randint(0, (len(unsorted_cells)-1))
+            r_n = random.randint(0, (len(unsorted_nodes) - 1))
+            r_c = random.randint(0, (len(unsorted_cells) - 1))
             n = unsorted_nodes[r_n]
             c = unsorted_cells[r_c]
 
@@ -171,7 +173,7 @@ def bits(n):
         return int(ceil(log2(n)))
 
 
-def create_rom_files(sa_comp, path:str):
+def create_rom_files(sa_comp, path: str):
     sa_graph = sa_comp.sa_graph
     n_cells = sa_comp.sa_graph.n_cells
     n_neighbors = sa_comp.n_neighbors
@@ -183,8 +185,8 @@ def create_rom_files(sa_comp, path:str):
     t_bits = 1 if t_bits == 0 else t_bits
     node_bits = c_bits
     lines = columns = int(sqrt(n_cells))
-    w_bits = t_bits+c_bits+node_bits+1
-    dist_bits = c_bits + ceil(log2(n_neighbors*2))
+    w_bits = t_bits + c_bits + node_bits + 1
+    dist_bits = c_bits + ceil(log2(n_neighbors * 2))
 
     sa_graph.reset_random()
 
@@ -195,9 +197,10 @@ def create_rom_files(sa_comp, path:str):
         c_n.append(c_n_i)
         n_c.append(n_c_i)
 
-    cn_str_f = '{:0%dX}' % ceil(node_bits/4)
-    nc_str_f = '{:0%dX}' % ceil(c_bits/4)
-    n_str_f = '{:0%dX}' % ceil(node_bits/4)
+    cn_str_f = '{:0%db}' % (node_bits + 1)
+    nc_str_f = '{:0%db}' % (c_bits)
+    n_str_f = '{:0%db}' % (node_bits + 1)
+    t_str = '{:0%db}' % (t_bits)
 
     cn_w = []  # [cn_str_f.format(0) for i in range(n_cells)]
     nc_w = []  # [nc_str_f.format(0) for i in range(n_cells)]
@@ -205,9 +208,9 @@ def create_rom_files(sa_comp, path:str):
     n_w = []
     for t in range(pow(2, ceil(sqrt(n_threads)))):
         cn_w.append([cn_str_f.format(0)
-                    for i in range(pow(2, ceil(sqrt(n_cells))))])
+                     for i in range(ceil(sqrt(n_cells)) * ceil(sqrt(n_cells)))])
         nc_w.append([nc_str_f.format(0)
-                    for i in range(pow(2, ceil(sqrt(n_cells))))])
+                     for i in range(ceil(sqrt(n_cells)) * ceil(sqrt(n_cells)))])
 
     for c in range(pow(2, ceil(sqrt(n_cells)))):
         n_w.append([n_str_f.format(0) for i in range(n_neighbors)])
@@ -229,7 +232,7 @@ def create_rom_files(sa_comp, path:str):
 
     with open(path + '/th.rom', 'w') as f:
         for i in range(pow(2, ceil(sqrt(n_threads)))):
-            f.write(str(0))
+            f.write(t_str.format(0))
             f.write('\n')
         f.close()
 
@@ -264,7 +267,7 @@ def create_rom_files(sa_comp, path:str):
 
 def create_dot_from_rom_files(rom_file: str, prefix: str, output_path: str, n_threads: int, n_cells: int):
     c_bits = ceil(log2(n_cells))
-    output_dot_files = [prefix+'%d.dot' % i for i in range(n_threads)]
+    output_dot_files = [prefix + '%d.dot' % i for i in range(n_threads)]
     dot_head = 'digraph layout{\n rankdir=TB;\n splines=ortho;\n node [style=filled shape=square fixedsize=true width=0.6];\n'
     dot_foot = 'edge [constraint=true, style=invis];\n'
     sqrt_cells = ceil(sqrt(n_cells))
@@ -295,13 +298,13 @@ def create_dot_from_rom_files(rom_file: str, prefix: str, output_path: str, n_th
         f.close()
     for t in range(n_threads):
         c = 0
-        while(c < n_cells):
+        while (c < n_cells):
             c_content = file_lines.pop(0)
             if '//' in c_content:
                 continue
             c_content = c_content.split('\n')[0]
             v = int(c_content, 16)
-            v = v & (n_cells-1)
+            v = v & (n_cells - 1)
             v = str(v)
             # print('%d[label="%s", fontsize=8, fillcolor="%s"];\n' % (
             #    c, '' if int(c_content, 16) == 0 else v, '#ffffff' if int(c_content, 16) == 0 else '#d9d9d9'))
@@ -311,6 +314,6 @@ def create_dot_from_rom_files(rom_file: str, prefix: str, output_path: str, n_th
         str_out[t] += dot_foot
 
     for t in range(n_threads):
-        with open(output_path+output_dot_files[t], 'w') as f:
+        with open(output_path + output_dot_files[t], 'w') as f:
             f.write(str_out[t])
         f.close()

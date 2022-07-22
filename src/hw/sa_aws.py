@@ -62,11 +62,19 @@ class SaAws:
         # config_valid = m.Reg('config_valid')
         config_data = m.Reg('config_data', self.pipe_width)
 
-        fsm_sd = m.Reg('fms_sd', 2)
-        fsm_sd_idle = m.Localparam('fsm_sd_idle', 0, 2)
-        fsm_sd_send_data = m.Localparam('fsm_sd_send_data', 1, 2)
-        fsm_sd_done = m.Localparam('fsm_sd_done', 2, 2)
-        flag = m.Reg('flag')
+        fsm_sd = m.Reg('fms_sd', 4)
+        fsm_sd_c2n_idle = m.Localparam('fsm_sd_c2n_idle', 0, 4)
+        fsm_sd_c2n_send_data = m.Localparam('fsm_sd_c2n_send_data', 1, 4)
+        fsm_sd_c2n_verify = m.Localparam('fsm_sd_c2n_verify', 2, 4)
+        fsm_sd_n2c_idle = m.Localparam('fsm_sd_n2c_idle', 3, 4)
+        fsm_sd_n2c_send_data = m.Localparam('fsm_sd_n2c_send_data', 4, 4)
+        fsm_sd_n2c_verify = m.Localparam('fsm_sd_n2c_verify', 5, 4)
+        fsm_sd_n_idle = m.Localparam('fsm_sd_n_idle', 6, 4)
+        fsm_sd_n_send_data = m.Localparam('fsm_sd_n_send_data', 7, 4)
+        fsm_sd_n_verify = m.Localparam('fsm_sd_n_verify', 8, 4)
+        fsm_sd_nexec_idle = m.Localparam('fsm_sd_nexec_idle', 9, 4)
+        fsm_sd_nexec_send_data = m.Localparam('fsm_sd_nexec_send_data', 10, 4)
+        fsm_sd_done = m.Localparam('fsm_sd_done', 11, 4)
 
         sa_done = m.Wire('sa_done')
         sa_rd = m.Reg('sa_rd')
@@ -74,30 +82,111 @@ class SaAws:
         sa_out_v = m.Wire('sa_out_v')
         sa_out_data = m.Wire('sa_out_data', node_bits + 1)
 
+        # input config interfaces
+        st1_wr = m.Reg('st1_wr')
+        st1_wr_addr = m.Reg('st1_wr_addr', t_bits + c_bits)
+        st1_wr_data = m.Reg('st1_wr_data', node_bits + 1)
+        st2_mem_sel = m.Reg('st2_mem_sel', n_neighbors)
+        st2_wr = m.Reg('st2_wr', n_neighbors)
+        st2_wr_addr = m.Reg('st2_wr_addr', node_bits)
+        st2_wr_data = m.Reg('st2_wr_data', node_bits + 1)
+        st3_wr = m.Reg('st3_wr')
+        st3_wr_addr = m.Reg('st3_wr_addr', t_bits + node_bits)
+        st3_wr_data = m.Reg('st3_wr_data', c_bits)
+
         m.Always(Posedge(clk))(
             If(rst)(
+                st1_wr(0),
+                st1_wr_addr(0),
+                st1_wr_data(0),
+                st2_mem_sel(1),
+                st2_wr(0),
+                st2_wr_addr(0),
+                st2_wr_data(0),
+                st3_wr(0),
+                st3_wr_addr(0),
+                st3_wr_data(0),
                 pop_data(0),
-                fsm_sd(fsm_sd_idle),
-                flag(0)
+                fsm_sd(fsm_sd_c2n_idle),
             ).Elif(start)(
+                st1_wr(0),
+                st2_wr(0),
+                st3_wr(0),
                 start_pipe(0),
                 pop_data(0),
-                flag(0),
                 Case(fsm_sd)(
-                    When(fsm_sd_idle)(
+                    When(fsm_sd_c2n_idle)(
                         If(available_pop)(
                             pop_data(1),
-                            flag(1),
-                            fsm_sd(fsm_sd_send_data)
+                            fsm_sd(fsm_sd_c2n_send_data)
                         )
                     ),
-                    When(fsm_sd_send_data)(
-                        # If(available_pop | flag)(
+                    When(fsm_sd_c2n_send_data)(
+                        st1_wr(1),
+                        st1_wr_data(data_out[:st1_wr_data.width]),
+                        fsm_sd(fsm_sd_c2n_verify)
+                    ),
+                    When(fsm_sd_c2n_verify)(
+                        If(Uand(st1_wr_addr))(
+                            fsm_sd(fsm_sd_n2c_idle)
+                        ).Else(
+                            st1_wr_addr.inc(),
+                            fsm_sd(fsm_sd_c2n_idle)
+                        ),
+                    ),
+                    When(fsm_sd_n2c_idle)(
+                        If(available_pop)(
+                            pop_data(1),
+                            fsm_sd(fsm_sd_n2c_send_data)
+                        )
+                    ),
+                    When(fsm_sd_n2c_send_data)(
+                        st3_wr(1),
+                        st3_wr_data(data_out[:st3_wr_data.width]),
+                        fsm_sd(fsm_sd_n2c_verify)
+                    ),
+                    When(fsm_sd_n2c_verify)(
+                        If(Uand(st3_wr_addr))(
+                            fsm_sd(fsm_sd_n_idle)
+                        ).Else(
+                            st3_wr_addr.inc(),
+                            fsm_sd(fsm_sd_n2c_idle)
+                        ),
+                    ),
+                    When(fsm_sd_n_idle)(
+                        If(available_pop)(
+                            pop_data(1),
+                            fsm_sd(fsm_sd_n_send_data)
+                        )
+                    ),
+                    When(fsm_sd_n_send_data)(
+                        st2_wr(st2_mem_sel),
+                        st2_wr_data(data_out[:st2_wr_data.width]),
+                        fsm_sd(fsm_sd_n_verify)
+                    ),
+                    When(fsm_sd_n_verify)(
+                        If(Uand(st2_wr_addr))(
+                            If(st2_mem_sel[n_neighbors-1])(
+                                fsm_sd(fsm_sd_nexec_idle)
+                            ).Else(
+                                st2_mem_sel(st2_mem_sel << 1),
+                                st2_wr_addr.inc(),
+                                fsm_sd(fsm_sd_n_idle)
+                            ),
+                        ).Else(
+                            st2_wr_addr.inc(),
+                            fsm_sd(fsm_sd_n_idle)
+                        ),
+                    ),
+                    When(fsm_sd_nexec_idle)(
+                        If(available_pop)(
+                            pop_data(1),
+                            fsm_sd(fsm_sd_nexec_send_data)
+                        )
+                    ),
+                    When(fsm_sd_nexec_send_data)(
                         config_data(data_out),
-                        # pop_data(1),
-                        # ).Else(
                         fsm_sd(fsm_sd_done)
-                        # )
                     ),
                     When(fsm_sd_done)(
                         start_pipe(1)
@@ -175,6 +264,15 @@ class SaAws:
 
         par = []
         con = [
+            ('st1_wr', st1_wr),
+            ('st1_wr_addr', st1_wr_addr),
+            ('st1_wr_data', st1_wr_data),
+            ('st2_wr', st2_wr),
+            ('st2_wr_addr', st2_wr_addr),
+            ('st2_wr_data', st2_wr_data),
+            ('st3_wr', st3_wr),
+            ('st3_wr_addr', st3_wr_addr),
+            ('st3_wr_data', st3_wr_data),
             ('clk', clk),
             ('rst', rst),
             ('start', start_pipe),
