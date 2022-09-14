@@ -120,7 +120,7 @@ module test_bench_sa_acc
     @(posedge clk);
     @(posedge clk);
     rst = 0;
-    #45000;
+    #40000;
     $finish;
   end
 
@@ -547,7 +547,15 @@ module sa_pipeline_6th_16cells
   input rd,
   input [7-1:0] rd_addr,
   output out_v,
-  output [5-1:0] out_data
+  output [5-1:0] out_data,
+  output reg [3-1:0] st4_idx,
+  output reg st4_v,
+  output reg [4-1:0] st4_lca,
+  output reg [4-1:0] st4_lcb,
+  output reg [16-1:0] st4_lcva,
+  output reg [4-1:0] st4_lcva_v,
+  output reg [16-1:0] st4_lcvb,
+  output reg [4-1:0] st4_lcvb_v
 );
 
   // basic control inputs
@@ -620,49 +628,46 @@ module sa_pipeline_6th_16cells
   wire [12-1:0] st3_wb;
   // -----
   // st4 output wires
-  wire [3-1:0] st4_idx;
-  wire st4_v;
-  wire [4-1:0] st4_ca;
-  wire [4-1:0] st4_cb;
-  wire [16-1:0] st4_cva;
-  wire [4-1:0] st4_cva_v;
-  wire [16-1:0] st4_cvb;
-  wire [4-1:0] st4_cvb_v;
-  wire [28-1:0] st4_dvac;
-  wire [28-1:0] st4_dvbc;
   // -----
   // st5 output wires
   wire [3-1:0] st5_idx;
   wire st5_v;
-  wire [14-1:0] st5_dvac;
-  wire [14-1:0] st5_dvbc;
-  wire [28-1:0] st5_dvas;
-  wire [28-1:0] st5_dvbs;
+  wire [4-1:0] st5_lca;
+  wire [4-1:0] st5_lcb;
+  wire [16-1:0] st5_lcva;
+  wire [4-1:0] st5_lcva_v;
+  wire [16-1:0] st5_lcvb;
+  wire [4-1:0] st5_lcvb_v;
+  wire [28-1:0] st5_dvac;
+  wire [28-1:0] st5_dvbc;
   // -----
   // st6 output wires
   wire [3-1:0] st6_idx;
   wire st6_v;
-  wire [7-1:0] st6_dvac;
-  wire [7-1:0] st6_dvbc;
-  wire [14-1:0] st6_dvas;
-  wire [14-1:0] st6_dvbs;
+  wire [14-1:0] st6_dvac;
+  wire [14-1:0] st6_dvbc;
+  wire [28-1:0] st6_dvas;
+  wire [28-1:0] st6_dvbs;
   // -----
   // st7 output wires
   wire [3-1:0] st7_idx;
   wire st7_v;
-  wire [7-1:0] st7_dc;
-  wire [7-1:0] st7_dvas;
-  wire [7-1:0] st7_dvbs;
+  wire [7-1:0] st7_dvac;
+  wire [7-1:0] st7_dvbc;
+  wire [14-1:0] st7_dvas;
+  wire [14-1:0] st7_dvbs;
+  // -----
   // st8 output wires
   wire [3-1:0] st8_idx;
   wire st8_v;
   wire [7-1:0] st8_dc;
-  wire [7-1:0] st8_ds;
-  // -----
+  wire [7-1:0] st8_dvas;
+  wire [7-1:0] st8_dvbs;
   // st9 output wires
   wire [3-1:0] st9_idx;
   wire st9_v;
-  wire st9_sw;
+  wire [7-1:0] st9_dc;
+  wire [7-1:0] st9_ds;
   // -----
   // st10 output wires
   wire [3-1:0] st10_idx;
@@ -790,8 +795,8 @@ module sa_pipeline_6th_16cells
   );
 
 
-  st4_d1_6th_16cells
-  st4_d1_6th_16cells
+  st4_lcf_6th_16cells
+  st4_lcf_6th_16cells
   (
     .clk(clk),
     .idx_in(st3_idx),
@@ -804,50 +809,54 @@ module sa_pipeline_6th_16cells
     .cvb_v_in(st3_cvb_v),
     .idx_out(st4_idx),
     .v_out(st4_v),
-    .ca_out(st4_ca),
-    .cb_out(st4_cb),
-    .cva_out(st4_cva),
-    .cva_v_out(st4_cva_v),
-    .cvb_out(st4_cvb),
-    .cvb_v_out(st4_cvb_v),
-    .dvac_out(st4_dvac),
-    .dvbc_out(st4_dvbc)
+    .lca_out(st4_lca),
+    .lcb_out(st4_lcb),
+    .lcva_out(st4_lcva),
+    .lcva_v_out(st4_lcva_v),
+    .lcvb_out(st4_lcvb),
+    .lcvb_v_out(st4_lcvb_v)
   );
 
 
-  st5_d2_s1_6th_16cells
-  st5_d2_s1_6th_16cells
+  st5_d1_6th_16cells
+  st5_d1_6th_16cells
   (
     .clk(clk),
     .idx_in(st4_idx),
     .v_in(st4_v),
-    .ca_in(st4_ca),
-    .cb_in(st4_cb),
-    .cva_in(st4_cva),
-    .cva_v_in(st4_cva_v),
-    .cvb_in(st4_cvb),
-    .cvb_v_in(st4_cvb_v),
-    .dvac_in(st4_dvac),
-    .dvbc_in(st4_dvbc),
+    .lca_in(st4_lca),
+    .lcb_in(st4_lcb),
+    .lcva_in(st4_lcva),
+    .lcva_v_in(st4_lcva_v),
+    .lcvb_in(st4_lcvb),
+    .lcvb_v_in(st4_lcvb_v),
     .idx_out(st5_idx),
     .v_out(st5_v),
+    .lca_out(st5_lca),
+    .lcb_out(st5_lcb),
+    .lcva_out(st5_lcva),
+    .lcva_v_out(st5_lcva_v),
+    .lcvb_out(st5_lcvb),
+    .lcvb_v_out(st5_lcvb_v),
     .dvac_out(st5_dvac),
-    .dvbc_out(st5_dvbc),
-    .dvas_out(st5_dvas),
-    .dvbs_out(st5_dvbs)
+    .dvbc_out(st5_dvbc)
   );
 
 
-  st6_s2_6th_16cells
-  st6_s2_6th_16cells
+  st6_d2_s1_6th_16cells
+  st6_d2_s1_6th_16cells
   (
     .clk(clk),
     .idx_in(st5_idx),
     .v_in(st5_v),
+    .lca_in(st5_lca),
+    .lcb_in(st5_lcb),
+    .lcva_in(st5_lcva),
+    .lcva_v_in(st5_lcva_v),
+    .lcvb_in(st5_lcvb),
+    .lcvb_v_in(st5_lcvb_v),
     .dvac_in(st5_dvac),
     .dvbc_in(st5_dvbc),
-    .dvas_in(st5_dvas),
-    .dvbs_in(st5_dvbs),
     .idx_out(st6_idx),
     .v_out(st6_v),
     .dvac_out(st6_dvac),
@@ -857,8 +866,8 @@ module sa_pipeline_6th_16cells
   );
 
 
-  st7_s3_6th_16cells
-  st7_s3_6th_16cells
+  st7_s2_6th_16cells
+  st7_s2_6th_16cells
   (
     .clk(clk),
     .idx_in(st6_idx),
@@ -869,49 +878,55 @@ module sa_pipeline_6th_16cells
     .dvbs_in(st6_dvbs),
     .idx_out(st7_idx),
     .v_out(st7_v),
-    .dc_out(st7_dc),
+    .dvac_out(st7_dvac),
+    .dvbc_out(st7_dvbc),
     .dvas_out(st7_dvas),
     .dvbs_out(st7_dvbs)
   );
 
 
-  st8_s4_6th_16cells
-  st8_s4_6th_16cells
+  st8_s3_6th_16cells
+  st8_s3_6th_16cells
   (
     .clk(clk),
     .idx_in(st7_idx),
     .v_in(st7_v),
-    .dc_in(st7_dc),
+    .dvac_in(st7_dvac),
+    .dvbc_in(st7_dvbc),
     .dvas_in(st7_dvas),
     .dvbs_in(st7_dvbs),
     .idx_out(st8_idx),
     .v_out(st8_v),
     .dc_out(st8_dc),
-    .ds_out(st8_ds)
+    .dvas_out(st8_dvas),
+    .dvbs_out(st8_dvbs)
   );
 
 
-  st9_cmp_6th_16cells
-  st9_cmp_6th_16cells
+  st9_s4_6th_16cells
+  st9_s4_6th_16cells
   (
     .clk(clk),
     .idx_in(st8_idx),
     .v_in(st8_v),
     .dc_in(st8_dc),
-    .ds_in(st8_ds),
+    .dvas_in(st8_dvas),
+    .dvbs_in(st8_dvbs),
     .idx_out(st9_idx),
     .v_out(st9_v),
-    .sw_out(st9_sw)
+    .dc_out(st9_dc),
+    .ds_out(st9_ds)
   );
 
 
-  st10_reg_6th_16cells
-  st10_reg_6th_16cells
+  st10_cmp_6th_16cells
+  st10_cmp_6th_16cells
   (
     .clk(clk),
     .idx_in(st9_idx),
     .v_in(st9_v),
-    .sw_in(st9_sw),
+    .dc_in(st9_dc),
+    .ds_in(st9_ds),
     .idx_out(st10_idx),
     .v_out(st10_v),
     .sw_out(st10_sw)
@@ -921,6 +936,14 @@ module sa_pipeline_6th_16cells
   initial begin
     done = 0;
     counter_total = 0;
+    st4_idx = 0;
+    st4_v = 0;
+    st4_lca = 0;
+    st4_lcb = 0;
+    st4_lcva = 0;
+    st4_lcva_v = 0;
+    st4_lcvb = 0;
+    st4_lcvb_v = 0;
   end
 
 
@@ -1864,7 +1887,7 @@ endmodule
 
 
 
-module st4_d1_6th_16cells
+module st4_lcf_6th_16cells
 (
   input clk,
   input [3-1:0] idx_in,
@@ -1877,88 +1900,224 @@ module st4_d1_6th_16cells
   input [4-1:0] cvb_v_in,
   output reg [3-1:0] idx_out,
   output reg v_out,
-  output reg [4-1:0] ca_out,
-  output reg [4-1:0] cb_out,
-  output reg [16-1:0] cva_out,
-  output reg [4-1:0] cva_v_out,
-  output reg [16-1:0] cvb_out,
-  output reg [4-1:0] cvb_v_out,
-  output reg [28-1:0] dvac_out,
-  output reg [28-1:0] dvbc_out
+  output reg [4-1:0] lca_out,
+  output reg [4-1:0] lcb_out,
+  output reg [16-1:0] lcva_out,
+  output reg [4-1:0] lcva_v_out,
+  output reg [16-1:0] lcvb_out,
+  output reg [4-1:0] lcvb_v_out
 );
 
-  wire [4-1:0] cac;
-  wire [4-1:0] cbc;
-  wire [28-1:0] dvac_t;
-  wire [28-1:0] dvbc_t;
-  assign cac = ca_in;
-  assign cbc = cb_in;
+  wire [4-1:0] lca_t;
+  wire [4-1:0] lcb_t;
+  wire [16-1:0] lcva_t;
+  wire [16-1:0] lcvb_t;
 
   always @(posedge clk) begin
     idx_out <= idx_in;
     v_out <= v_in;
-    ca_out <= ca_in;
-    cb_out <= cb_in;
-    cva_out <= cva_in;
-    cva_v_out <= cva_v_in;
-    cvb_out <= cvb_in;
-    cvb_v_out <= cvb_v_in;
+    lca_out <= lca_t;
+    lcb_out <= lcb_t;
+    lcva_out <= lcva_t;
+    lcva_v_out <= cva_v_in;
+    lcvb_out <= lcvb_t;
+    lcvb_v_out <= cvb_v_in;
+  end
+
+
+  lc_table_4_4
+  lc_table_4_4_c
+  (
+    .ca(ca_in),
+    .cb(cb_in),
+    .lca(lca_t),
+    .lcb(lcb_t)
+  );
+
+
+  lc_table_4_4
+  lc_table_4_4_v_0
+  (
+    .ca(cva_in[3:0]),
+    .cb(cvb_in[3:0]),
+    .lca(lcva_t[3:0]),
+    .lcb(lcvb_t[3:0])
+  );
+
+
+  lc_table_4_4
+  lc_table_4_4_v_1
+  (
+    .ca(cva_in[7:4]),
+    .cb(cvb_in[7:4]),
+    .lca(lcva_t[7:4]),
+    .lcb(lcvb_t[7:4])
+  );
+
+
+  lc_table_4_4
+  lc_table_4_4_v_2
+  (
+    .ca(cva_in[11:8]),
+    .cb(cvb_in[11:8]),
+    .lca(lcva_t[11:8]),
+    .lcb(lcvb_t[11:8])
+  );
+
+
+  lc_table_4_4
+  lc_table_4_4_v_3
+  (
+    .ca(cva_in[15:12]),
+    .cb(cvb_in[15:12]),
+    .lca(lcva_t[15:12]),
+    .lcb(lcvb_t[15:12])
+  );
+
+
+  initial begin
+    idx_out = 0;
+    v_out = 0;
+    lca_out = 0;
+    lcb_out = 0;
+    lcva_out = 0;
+    lcva_v_out = 0;
+    lcvb_out = 0;
+    lcvb_v_out = 0;
+  end
+
+
+endmodule
+
+
+
+module lc_table_4_4
+(
+  input [4-1:0] ca,
+  input [4-1:0] cb,
+  output [4-1:0] lca,
+  output [4-1:0] lcb
+);
+
+  wire [4-1:0] lc_table [0:16-1];
+  assign lca = lc_table[ca];
+  assign lcb = lc_table[cb];
+  assign lc_table[0] = { 2'd0, 2'd0 };
+  assign lc_table[1] = { 2'd0, 2'd1 };
+  assign lc_table[2] = { 2'd0, 2'd2 };
+  assign lc_table[3] = { 2'd0, 2'd3 };
+  assign lc_table[4] = { 2'd1, 2'd0 };
+  assign lc_table[5] = { 2'd1, 2'd1 };
+  assign lc_table[6] = { 2'd1, 2'd2 };
+  assign lc_table[7] = { 2'd1, 2'd3 };
+  assign lc_table[8] = { 2'd2, 2'd0 };
+  assign lc_table[9] = { 2'd2, 2'd1 };
+  assign lc_table[10] = { 2'd2, 2'd2 };
+  assign lc_table[11] = { 2'd2, 2'd3 };
+  assign lc_table[12] = { 2'd3, 2'd0 };
+  assign lc_table[13] = { 2'd3, 2'd1 };
+  assign lc_table[14] = { 2'd3, 2'd2 };
+  assign lc_table[15] = { 2'd3, 2'd3 };
+
+endmodule
+
+
+
+module st5_d1_6th_16cells
+(
+  input clk,
+  input [3-1:0] idx_in,
+  input v_in,
+  input [4-1:0] lca_in,
+  input [4-1:0] lcb_in,
+  input [16-1:0] lcva_in,
+  input [4-1:0] lcva_v_in,
+  input [16-1:0] lcvb_in,
+  input [4-1:0] lcvb_v_in,
+  output reg [3-1:0] idx_out,
+  output reg v_out,
+  output reg [4-1:0] lca_out,
+  output reg [4-1:0] lcb_out,
+  output reg [16-1:0] lcva_out,
+  output reg [4-1:0] lcva_v_out,
+  output reg [16-1:0] lcvb_out,
+  output reg [4-1:0] lcvb_v_out,
+  output reg [28-1:0] dvac_out,
+  output reg [28-1:0] dvbc_out
+);
+
+  wire [4-1:0] lcac;
+  wire [4-1:0] lcbc;
+  wire [28-1:0] dvac_t;
+  wire [28-1:0] dvbc_t;
+  assign lcac = lca_in;
+  assign lcbc = lcb_in;
+
+  always @(posedge clk) begin
+    idx_out <= idx_in;
+    v_out <= v_in;
+    lca_out <= lca_in;
+    lcb_out <= lcb_in;
+    lcva_out <= lcva_in;
+    lcva_v_out <= lcva_v_in;
+    lcvb_out <= lcvb_in;
+    lcvb_v_out <= lcvb_v_in;
     dvac_out <= dvac_t;
     dvbc_out <= dvbc_t;
   end
 
 
-  distance_rom_4_4
-  distance_rom_4_4_dac_0
+  distance_table_4_4
+  distance_table_4_4_dac_0
   (
-    .opa0(cac),
-    .opa1(cva_in[3:0]),
-    .opav(cva_v_in[0]),
-    .opb0(cac),
-    .opb1(cva_in[7:4]),
-    .opbv(cva_v_in[1]),
+    .opa0(lcac),
+    .opa1(lcva_in[3:0]),
+    .opav(lcva_v_in[0]),
+    .opb0(lcac),
+    .opb1(lcva_in[7:4]),
+    .opbv(lcva_v_in[1]),
     .da(dvac_t[6:0]),
     .db(dvac_t[13:7])
   );
 
 
-  distance_rom_4_4
-  distance_rom_4_4_dac_1
+  distance_table_4_4
+  distance_table_4_4_dac_1
   (
-    .opa0(cac),
-    .opa1(cva_in[11:8]),
-    .opav(cva_v_in[2]),
-    .opb0(cac),
-    .opb1(cva_in[15:12]),
-    .opbv(cva_v_in[3]),
+    .opa0(lcac),
+    .opa1(lcva_in[11:8]),
+    .opav(lcva_v_in[2]),
+    .opb0(lcac),
+    .opb1(lcva_in[15:12]),
+    .opbv(lcva_v_in[3]),
     .da(dvac_t[20:14]),
     .db(dvac_t[27:21])
   );
 
 
-  distance_rom_4_4
-  distance_rom_4_4_dbc_0
+  distance_table_4_4
+  distance_table_4_4_dbc_0
   (
-    .opa0(cbc),
-    .opa1(cvb_in[3:0]),
-    .opav(cvb_v_in[0]),
-    .opb0(cbc),
-    .opb1(cvb_in[7:4]),
-    .opbv(cvb_v_in[1]),
+    .opa0(lcbc),
+    .opa1(lcvb_in[3:0]),
+    .opav(lcvb_v_in[0]),
+    .opb0(lcbc),
+    .opb1(lcvb_in[7:4]),
+    .opbv(lcvb_v_in[1]),
     .da(dvbc_t[6:0]),
     .db(dvbc_t[13:7])
   );
 
 
-  distance_rom_4_4
-  distance_rom_4_4_dbc_1
+  distance_table_4_4
+  distance_table_4_4_dbc_1
   (
-    .opa0(cbc),
-    .opa1(cvb_in[11:8]),
-    .opav(cvb_v_in[2]),
-    .opb0(cbc),
-    .opb1(cvb_in[15:12]),
-    .opbv(cvb_v_in[3]),
+    .opa0(lcbc),
+    .opa1(lcvb_in[11:8]),
+    .opav(lcvb_v_in[2]),
+    .opb0(lcbc),
+    .opb1(lcvb_in[15:12]),
+    .opbv(lcvb_v_in[3]),
     .da(dvbc_t[20:14]),
     .db(dvbc_t[27:21])
   );
@@ -1967,12 +2126,12 @@ module st4_d1_6th_16cells
   initial begin
     idx_out = 0;
     v_out = 0;
-    ca_out = 0;
-    cb_out = 0;
-    cva_out = 0;
-    cva_v_out = 0;
-    cvb_out = 0;
-    cvb_v_out = 0;
+    lca_out = 0;
+    lcb_out = 0;
+    lcva_out = 0;
+    lcva_v_out = 0;
+    lcvb_out = 0;
+    lcvb_v_out = 0;
     dvac_out = 0;
     dvbc_out = 0;
   end
@@ -1982,7 +2141,7 @@ endmodule
 
 
 
-module distance_rom_4_4
+module distance_table_4_4
 (
   input [4-1:0] opa0,
   input [4-1:0] opa1,
@@ -1994,281 +2153,48 @@ module distance_rom_4_4
   output [7-1:0] db
 );
 
-  wire [7-1:0] mem [0:16**2-1];
-  assign da = (opav)? mem[{ opa1, opa0 }] : 0;
-  assign db = (opbv)? mem[{ opb1, opb0 }] : 0;
-  assign mem[0] = 7'd0;
-  assign mem[1] = 7'd1;
-  assign mem[2] = 7'd2;
-  assign mem[3] = 7'd3;
-  assign mem[4] = 7'd1;
-  assign mem[5] = 7'd2;
-  assign mem[6] = 7'd3;
-  assign mem[7] = 7'd4;
-  assign mem[8] = 7'd2;
-  assign mem[9] = 7'd3;
-  assign mem[10] = 7'd4;
-  assign mem[11] = 7'd5;
-  assign mem[12] = 7'd3;
-  assign mem[13] = 7'd4;
-  assign mem[14] = 7'd5;
-  assign mem[15] = 7'd6;
-  assign mem[16] = 7'd1;
-  assign mem[17] = 7'd0;
-  assign mem[18] = 7'd1;
-  assign mem[19] = 7'd2;
-  assign mem[20] = 7'd2;
-  assign mem[21] = 7'd1;
-  assign mem[22] = 7'd2;
-  assign mem[23] = 7'd3;
-  assign mem[24] = 7'd3;
-  assign mem[25] = 7'd2;
-  assign mem[26] = 7'd3;
-  assign mem[27] = 7'd4;
-  assign mem[28] = 7'd4;
-  assign mem[29] = 7'd3;
-  assign mem[30] = 7'd4;
-  assign mem[31] = 7'd5;
-  assign mem[32] = 7'd2;
-  assign mem[33] = 7'd1;
-  assign mem[34] = 7'd0;
-  assign mem[35] = 7'd1;
-  assign mem[36] = 7'd3;
-  assign mem[37] = 7'd2;
-  assign mem[38] = 7'd1;
-  assign mem[39] = 7'd2;
-  assign mem[40] = 7'd4;
-  assign mem[41] = 7'd3;
-  assign mem[42] = 7'd2;
-  assign mem[43] = 7'd3;
-  assign mem[44] = 7'd5;
-  assign mem[45] = 7'd4;
-  assign mem[46] = 7'd3;
-  assign mem[47] = 7'd4;
-  assign mem[48] = 7'd3;
-  assign mem[49] = 7'd2;
-  assign mem[50] = 7'd1;
-  assign mem[51] = 7'd0;
-  assign mem[52] = 7'd4;
-  assign mem[53] = 7'd3;
-  assign mem[54] = 7'd2;
-  assign mem[55] = 7'd1;
-  assign mem[56] = 7'd5;
-  assign mem[57] = 7'd4;
-  assign mem[58] = 7'd3;
-  assign mem[59] = 7'd2;
-  assign mem[60] = 7'd6;
-  assign mem[61] = 7'd5;
-  assign mem[62] = 7'd4;
-  assign mem[63] = 7'd3;
-  assign mem[64] = 7'd1;
-  assign mem[65] = 7'd2;
-  assign mem[66] = 7'd3;
-  assign mem[67] = 7'd4;
-  assign mem[68] = 7'd0;
-  assign mem[69] = 7'd1;
-  assign mem[70] = 7'd2;
-  assign mem[71] = 7'd3;
-  assign mem[72] = 7'd1;
-  assign mem[73] = 7'd2;
-  assign mem[74] = 7'd3;
-  assign mem[75] = 7'd4;
-  assign mem[76] = 7'd2;
-  assign mem[77] = 7'd3;
-  assign mem[78] = 7'd4;
-  assign mem[79] = 7'd5;
-  assign mem[80] = 7'd2;
-  assign mem[81] = 7'd1;
-  assign mem[82] = 7'd2;
-  assign mem[83] = 7'd3;
-  assign mem[84] = 7'd1;
-  assign mem[85] = 7'd0;
-  assign mem[86] = 7'd1;
-  assign mem[87] = 7'd2;
-  assign mem[88] = 7'd2;
-  assign mem[89] = 7'd1;
-  assign mem[90] = 7'd2;
-  assign mem[91] = 7'd3;
-  assign mem[92] = 7'd3;
-  assign mem[93] = 7'd2;
-  assign mem[94] = 7'd3;
-  assign mem[95] = 7'd4;
-  assign mem[96] = 7'd3;
-  assign mem[97] = 7'd2;
-  assign mem[98] = 7'd1;
-  assign mem[99] = 7'd2;
-  assign mem[100] = 7'd2;
-  assign mem[101] = 7'd1;
-  assign mem[102] = 7'd0;
-  assign mem[103] = 7'd1;
-  assign mem[104] = 7'd3;
-  assign mem[105] = 7'd2;
-  assign mem[106] = 7'd1;
-  assign mem[107] = 7'd2;
-  assign mem[108] = 7'd4;
-  assign mem[109] = 7'd3;
-  assign mem[110] = 7'd2;
-  assign mem[111] = 7'd3;
-  assign mem[112] = 7'd4;
-  assign mem[113] = 7'd3;
-  assign mem[114] = 7'd2;
-  assign mem[115] = 7'd1;
-  assign mem[116] = 7'd3;
-  assign mem[117] = 7'd2;
-  assign mem[118] = 7'd1;
-  assign mem[119] = 7'd0;
-  assign mem[120] = 7'd4;
-  assign mem[121] = 7'd3;
-  assign mem[122] = 7'd2;
-  assign mem[123] = 7'd1;
-  assign mem[124] = 7'd5;
-  assign mem[125] = 7'd4;
-  assign mem[126] = 7'd3;
-  assign mem[127] = 7'd2;
-  assign mem[128] = 7'd2;
-  assign mem[129] = 7'd3;
-  assign mem[130] = 7'd4;
-  assign mem[131] = 7'd5;
-  assign mem[132] = 7'd1;
-  assign mem[133] = 7'd2;
-  assign mem[134] = 7'd3;
-  assign mem[135] = 7'd4;
-  assign mem[136] = 7'd0;
-  assign mem[137] = 7'd1;
-  assign mem[138] = 7'd2;
-  assign mem[139] = 7'd3;
-  assign mem[140] = 7'd1;
-  assign mem[141] = 7'd2;
-  assign mem[142] = 7'd3;
-  assign mem[143] = 7'd4;
-  assign mem[144] = 7'd3;
-  assign mem[145] = 7'd2;
-  assign mem[146] = 7'd3;
-  assign mem[147] = 7'd4;
-  assign mem[148] = 7'd2;
-  assign mem[149] = 7'd1;
-  assign mem[150] = 7'd2;
-  assign mem[151] = 7'd3;
-  assign mem[152] = 7'd1;
-  assign mem[153] = 7'd0;
-  assign mem[154] = 7'd1;
-  assign mem[155] = 7'd2;
-  assign mem[156] = 7'd2;
-  assign mem[157] = 7'd1;
-  assign mem[158] = 7'd2;
-  assign mem[159] = 7'd3;
-  assign mem[160] = 7'd4;
-  assign mem[161] = 7'd3;
-  assign mem[162] = 7'd2;
-  assign mem[163] = 7'd3;
-  assign mem[164] = 7'd3;
-  assign mem[165] = 7'd2;
-  assign mem[166] = 7'd1;
-  assign mem[167] = 7'd2;
-  assign mem[168] = 7'd2;
-  assign mem[169] = 7'd1;
-  assign mem[170] = 7'd0;
-  assign mem[171] = 7'd1;
-  assign mem[172] = 7'd3;
-  assign mem[173] = 7'd2;
-  assign mem[174] = 7'd1;
-  assign mem[175] = 7'd2;
-  assign mem[176] = 7'd5;
-  assign mem[177] = 7'd4;
-  assign mem[178] = 7'd3;
-  assign mem[179] = 7'd2;
-  assign mem[180] = 7'd4;
-  assign mem[181] = 7'd3;
-  assign mem[182] = 7'd2;
-  assign mem[183] = 7'd1;
-  assign mem[184] = 7'd3;
-  assign mem[185] = 7'd2;
-  assign mem[186] = 7'd1;
-  assign mem[187] = 7'd0;
-  assign mem[188] = 7'd4;
-  assign mem[189] = 7'd3;
-  assign mem[190] = 7'd2;
-  assign mem[191] = 7'd1;
-  assign mem[192] = 7'd3;
-  assign mem[193] = 7'd4;
-  assign mem[194] = 7'd5;
-  assign mem[195] = 7'd6;
-  assign mem[196] = 7'd2;
-  assign mem[197] = 7'd3;
-  assign mem[198] = 7'd4;
-  assign mem[199] = 7'd5;
-  assign mem[200] = 7'd1;
-  assign mem[201] = 7'd2;
-  assign mem[202] = 7'd3;
-  assign mem[203] = 7'd4;
-  assign mem[204] = 7'd0;
-  assign mem[205] = 7'd1;
-  assign mem[206] = 7'd2;
-  assign mem[207] = 7'd3;
-  assign mem[208] = 7'd4;
-  assign mem[209] = 7'd3;
-  assign mem[210] = 7'd4;
-  assign mem[211] = 7'd5;
-  assign mem[212] = 7'd3;
-  assign mem[213] = 7'd2;
-  assign mem[214] = 7'd3;
-  assign mem[215] = 7'd4;
-  assign mem[216] = 7'd2;
-  assign mem[217] = 7'd1;
-  assign mem[218] = 7'd2;
-  assign mem[219] = 7'd3;
-  assign mem[220] = 7'd1;
-  assign mem[221] = 7'd0;
-  assign mem[222] = 7'd1;
-  assign mem[223] = 7'd2;
-  assign mem[224] = 7'd5;
-  assign mem[225] = 7'd4;
-  assign mem[226] = 7'd3;
-  assign mem[227] = 7'd4;
-  assign mem[228] = 7'd4;
-  assign mem[229] = 7'd3;
-  assign mem[230] = 7'd2;
-  assign mem[231] = 7'd3;
-  assign mem[232] = 7'd3;
-  assign mem[233] = 7'd2;
-  assign mem[234] = 7'd1;
-  assign mem[235] = 7'd2;
-  assign mem[236] = 7'd2;
-  assign mem[237] = 7'd1;
-  assign mem[238] = 7'd0;
-  assign mem[239] = 7'd1;
-  assign mem[240] = 7'd6;
-  assign mem[241] = 7'd5;
-  assign mem[242] = 7'd4;
-  assign mem[243] = 7'd3;
-  assign mem[244] = 7'd5;
-  assign mem[245] = 7'd4;
-  assign mem[246] = 7'd3;
-  assign mem[247] = 7'd2;
-  assign mem[248] = 7'd4;
-  assign mem[249] = 7'd3;
-  assign mem[250] = 7'd2;
-  assign mem[251] = 7'd1;
-  assign mem[252] = 7'd3;
-  assign mem[253] = 7'd2;
-  assign mem[254] = 7'd1;
-  assign mem[255] = 7'd0;
+  wire [7-1:0] dist_table [0:2**4-1];
+  wire [7-1:0] da_t;
+  wire [7-1:0] db_t;
+
+  assign da_t = dist_table[{ opa1[1:0], opa0[1:0] }] + dist_table[{ opa1[3:2], opa0[3:2] }];
+  assign db_t = dist_table[{ opb1[1:0], opb0[1:0] }] + dist_table[{ opb1[3:2], opb0[3:2] }];
+
+  assign da = (opav)? da_t : 0;
+  assign db = (opbv)? db_t : 0;
+
+  assign dist_table[0] = 0;
+  assign dist_table[1] = 1;
+  assign dist_table[2] = 2;
+  assign dist_table[3] = 3;
+  assign dist_table[4] = 1;
+  assign dist_table[5] = 0;
+  assign dist_table[6] = 1;
+  assign dist_table[7] = 2;
+  assign dist_table[8] = 2;
+  assign dist_table[9] = 1;
+  assign dist_table[10] = 0;
+  assign dist_table[11] = 1;
+  assign dist_table[12] = 3;
+  assign dist_table[13] = 2;
+  assign dist_table[14] = 1;
+  assign dist_table[15] = 0;
 
 endmodule
 
 
 
-module st5_d2_s1_6th_16cells
+module st6_d2_s1_6th_16cells
 (
   input clk,
   input [3-1:0] idx_in,
   input v_in,
-  input [4-1:0] ca_in,
-  input [4-1:0] cb_in,
-  input [16-1:0] cva_in,
-  input [4-1:0] cva_v_in,
-  input [16-1:0] cvb_in,
-  input [4-1:0] cvb_v_in,
+  input [4-1:0] lca_in,
+  input [4-1:0] lcb_in,
+  input [16-1:0] lcva_in,
+  input [4-1:0] lcva_v_in,
+  input [16-1:0] lcvb_in,
+  input [4-1:0] lcvb_v_in,
   input [28-1:0] dvac_in,
   input [28-1:0] dvbc_in,
   output reg [3-1:0] idx_out,
@@ -2279,28 +2205,28 @@ module st5_d2_s1_6th_16cells
   output reg [28-1:0] dvbs_out
 );
 
-  wire [4-1:0] cas;
-  wire [4-1:0] cbs;
+  wire [4-1:0] lcas;
+  wire [4-1:0] lcbs;
   wire [16-1:0] opva;
   wire [16-1:0] opvb;
   wire [14-1:0] dvac_t;
   wire [14-1:0] dvbc_t;
   wire [28-1:0] dvas_t;
   wire [28-1:0] dvbs_t;
-  assign cas = cb_in;
-  assign cbs = ca_in;
+  assign lcas = lcb_in;
+  assign lcbs = lca_in;
   assign dvac_t[6:0] = dvac_in[6:0] + dvac_in[13:7];
   assign dvac_t[13:7] = dvac_in[20:14] + dvac_in[27:21];
   assign dvbc_t[6:0] = dvbc_in[6:0] + dvbc_in[13:7];
   assign dvbc_t[13:7] = dvbc_in[20:14] + dvbc_in[27:21];
-  assign opva[3:0] = (cva_in[3:0] == cas)? cbs : cva_in[3:0];
-  assign opva[7:4] = (cva_in[7:4] == cas)? cbs : cva_in[7:4];
-  assign opva[11:8] = (cva_in[11:8] == cas)? cbs : cva_in[11:8];
-  assign opva[15:12] = (cva_in[15:12] == cas)? cbs : cva_in[15:12];
-  assign opvb[3:0] = (cvb_in[3:0] == cbs)? cas : cvb_in[3:0];
-  assign opvb[7:4] = (cvb_in[7:4] == cbs)? cas : cvb_in[7:4];
-  assign opvb[11:8] = (cvb_in[11:8] == cbs)? cas : cvb_in[11:8];
-  assign opvb[15:12] = (cvb_in[15:12] == cbs)? cas : cvb_in[15:12];
+  assign opva[3:0] = (lcva_in[3:0] == lcas)? lcbs : lcva_in[3:0];
+  assign opva[7:4] = (lcva_in[7:4] == lcas)? lcbs : lcva_in[7:4];
+  assign opva[11:8] = (lcva_in[11:8] == lcas)? lcbs : lcva_in[11:8];
+  assign opva[15:12] = (lcva_in[15:12] == lcas)? lcbs : lcva_in[15:12];
+  assign opvb[3:0] = (lcvb_in[3:0] == lcbs)? lcas : lcvb_in[3:0];
+  assign opvb[7:4] = (lcvb_in[7:4] == lcbs)? lcas : lcvb_in[7:4];
+  assign opvb[11:8] = (lcvb_in[11:8] == lcbs)? lcas : lcvb_in[11:8];
+  assign opvb[15:12] = (lcvb_in[15:12] == lcbs)? lcas : lcvb_in[15:12];
 
   always @(posedge clk) begin
     idx_out <= idx_in;
@@ -2312,57 +2238,57 @@ module st5_d2_s1_6th_16cells
   end
 
 
-  distance_rom_4_4
-  distance_rom_4_4_das_0
+  distance_table_4_4
+  distance_table_4_4_das_0
   (
-    .opa0(cas),
+    .opa0(lcas),
     .opa1(opva[3:0]),
-    .opav(cva_v_in[0]),
-    .opb0(cas),
+    .opav(lcva_v_in[0]),
+    .opb0(lcas),
     .opb1(opva[7:4]),
-    .opbv(cva_v_in[1]),
+    .opbv(lcva_v_in[1]),
     .da(dvas_t[6:0]),
     .db(dvas_t[13:7])
   );
 
 
-  distance_rom_4_4
-  distance_rom_4_4_das_1
+  distance_table_4_4
+  distance_table_4_4_das_1
   (
-    .opa0(cas),
+    .opa0(lcas),
     .opa1(opva[11:8]),
-    .opav(cva_v_in[2]),
-    .opb0(cas),
+    .opav(lcva_v_in[2]),
+    .opb0(lcas),
     .opb1(opva[15:12]),
-    .opbv(cva_v_in[3]),
+    .opbv(lcva_v_in[3]),
     .da(dvas_t[20:14]),
     .db(dvas_t[27:21])
   );
 
 
-  distance_rom_4_4
-  distance_rom_4_4_dbs_0
+  distance_table_4_4
+  distance_table_4_4_dbs_0
   (
-    .opa0(cbs),
+    .opa0(lcbs),
     .opa1(opvb[3:0]),
-    .opav(cvb_v_in[0]),
-    .opb0(cbs),
+    .opav(lcvb_v_in[0]),
+    .opb0(lcbs),
     .opb1(opvb[7:4]),
-    .opbv(cvb_v_in[1]),
+    .opbv(lcvb_v_in[1]),
     .da(dvbs_t[6:0]),
     .db(dvbs_t[13:7])
   );
 
 
-  distance_rom_4_4
-  distance_rom_4_4_dbs_1
+  distance_table_4_4
+  distance_table_4_4_dbs_1
   (
-    .opa0(cbs),
+    .opa0(lcbs),
     .opa1(opvb[11:8]),
-    .opav(cvb_v_in[2]),
-    .opb0(cbs),
+    .opav(lcvb_v_in[2]),
+    .opb0(lcbs),
     .opb1(opvb[15:12]),
-    .opbv(cvb_v_in[3]),
+    .opbv(lcvb_v_in[3]),
     .da(dvbs_t[20:14]),
     .db(dvbs_t[27:21])
   );
@@ -2382,7 +2308,7 @@ endmodule
 
 
 
-module st6_s2_6th_16cells
+module st7_s2_6th_16cells
 (
   input clk,
   input [3-1:0] idx_in,
@@ -2434,7 +2360,7 @@ endmodule
 
 
 
-module st7_s3_6th_16cells
+module st8_s3_6th_16cells
 (
   input clk,
   input [3-1:0] idx_in,
@@ -2479,7 +2405,7 @@ endmodule
 
 
 
-module st8_s4_6th_16cells
+module st9_s4_6th_16cells
 (
   input clk,
   input [3-1:0] idx_in,
@@ -2516,7 +2442,7 @@ endmodule
 
 
 
-module st9_cmp_6th_16cells
+module st10_cmp_6th_16cells
 (
   input clk,
   input [3-1:0] idx_in,
@@ -2535,36 +2461,6 @@ module st9_cmp_6th_16cells
     idx_out <= idx_in;
     v_out <= v_in;
     sw_out <= sw_t;
-  end
-
-
-  initial begin
-    idx_out = 0;
-    v_out = 0;
-    sw_out = 0;
-  end
-
-
-endmodule
-
-
-
-module st10_reg_6th_16cells
-(
-  input clk,
-  input [3-1:0] idx_in,
-  input v_in,
-  input sw_in,
-  output reg [3-1:0] idx_out,
-  output reg v_out,
-  output reg sw_out
-);
-
-
-  always @(posedge clk) begin
-    idx_out <= idx_in;
-    v_out <= v_in;
-    sw_out <= sw_in;
   end
 
 

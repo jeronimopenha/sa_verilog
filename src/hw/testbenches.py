@@ -171,6 +171,8 @@ def create_sa_aws_test_bench(comp: _comp.SAComponents) -> str:
     lines = columns = int(sqrt(n_cells))
     w_bits = t_bits + c_bits + node_bits + 1
     dist_bits = c_bits + ceil(log2(n_neighbors * 2))
+    lc_bits = ceil(log2(lines)) * 2
+
 
     m = Module('test_bench_sa_acc')
 
@@ -285,6 +287,6 @@ def create_sa_aws_test_bench(comp: _comp.SAComponents) -> str:
     )
     m.EmbeddedCode('\n//Simulation sector - End')
     m.to_verilog(os.getcwd() + "/verilog/sa_aws_testbench.v")
-    sim = simulation.Simulator(m, sim='iverilog')
+    #sim = simulation.Simulator(m, sim='iverilog')
     # rslt = sim.run()
     # print(rslt)

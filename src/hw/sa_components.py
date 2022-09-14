@@ -325,12 +325,12 @@ class SAComponents:
 
         ca = m.Input('ca', c_bits)
         cb = m.Input('cb', c_bits)
-        lcb = m.Output('lca', lc_bits)
+        lca = m.Output('lca', lc_bits)
         lcb = m.Output('lcb', lc_bits)
 
         lc_table = m.Wire('lc_table', lc_bits, n_cells)
 
-        lcb.assign(lc_table[ca])
+        lca.assign(lc_table[ca])
         lcb.assign(lc_table[cb])
 
         counter = 0
@@ -378,11 +378,11 @@ class SAComponents:
         da = m.Output('da', dist_bits)
         db = m.Output('db', dist_bits)
 
-        dist_table = m.Wire('dist_table', dist_bits, n_cells)
+        dist_table = m.Wire('dist_table', dist_bits, Power(2, lc_bits))
 
         da_t = m.Wire('da_t', dist_bits)
         db_t = m.Wire('db_t', dist_bits)
-        
+
         m.EmbeddedCode('')
         da_t.assign(dist_table[Cat(opa1[:w], opa0[:w])] +
                     dist_table[Cat(opa1[w:], opa0[w:])])
@@ -394,11 +394,9 @@ class SAComponents:
         db.assign(Mux(opbv, db_t, 0))
 
         m.EmbeddedCode('')
-        counter = 0
         for i in range(lines):
             for j in range(lines):
-                dist_table[counter].assign(abs(i-j))
-                counter += 1
+                dist_table[(i << w) | j].assign(abs(i-j))
 
         _u.initialize_regs(m)
         self.cache[name] = m
@@ -976,14 +974,14 @@ class SAComponents:
         self.cache[name] = m
         return m
 
-    def create_st4_flc(self) -> Module:
+    def create_st4_lcf(self) -> Module:
         sa_graph = self.sa_graph
         n_cells = self.sa_graph.n_cells
         n_neighbors = self.n_neighbors
         align_bits = self.align_bits
         n_threads = self.n_threads
 
-        name = 'st3_n2c_%dth_%dcells' % (n_threads, n_cells)
+        name = 'st4_lcf_%dth_%dcells' % (n_threads, n_cells)
         if name in self.cache.keys():
             return self.cache[name]
 
@@ -994,46 +992,7 @@ class SAComponents:
         lines = columns = int(sqrt(n_cells))
         w_bits = t_bits + c_bits + node_bits + 1
         dist_bits = c_bits + ceil(log2(n_neighbors * 2))
-
-        m = Module(name)
-        clk = m.Input('clk')
-        rst = m.Input('rst')
-
-        # interface
-
-        idx_int = m.OutputReg('idx_out', t_bits)
-        v_in = m.OutputReg('v_out')
-        ca_in = m.OutputReg('ca_out', c_bits)
-        cb_in = m.OutputReg('cb_out', c_bits)
-        cva_out = m.OutputReg('cva_out', c_bits * n_neighbors)
-        cva_v_out = m.OutputReg('cva_v_out', n_neighbors)
-        cvb_out = m.OutputReg('cvb_out', c_bits * n_neighbors)
-        cvb_v_out = m.OutputReg('cvb_v_out', n_neighbors)
-        wb_out = m.OutputReg('wb_out', w_bits)
-        # -----
-
-        _u.initialize_regs(m)
-        self.cache[name] = m
-        return m
-
-    def create_st5_d1(self) -> Module:
-        sa_graph = self.sa_graph
-        n_cells = self.sa_graph.n_cells
-        n_neighbors = self.n_neighbors
-        align_bits = self.align_bits
-        n_threads = self.n_threads
-
-        name = 'st4_d1_%dth_%dcells' % (n_threads, n_cells)
-        if name in self.cache.keys():
-            return self.cache[name]
-
-        c_bits = ceil(log2(n_cells))
-        t_bits = ceil(log2(n_threads))
-        t_bits = 1 if t_bits == 0 else t_bits
-        node_bits = c_bits
-        lines = columns = int(sqrt(n_cells))
-        w_bits = t_bits + c_bits + node_bits + 1
-        dist_bits = c_bits + ceil(log2(n_neighbors * 2))
+        lc_bits = ceil(log2(lines)) * 2
 
         m = Module(name)
         clk = m.Input('clk')
@@ -1050,33 +1009,116 @@ class SAComponents:
 
         idx_out = m.OutputReg('idx_out', t_bits)
         v_out = m.OutputReg('v_out')
-        ca_out = m.OutputReg('ca_out', c_bits)
-        cb_out = m.OutputReg('cb_out', c_bits)
-        cva_out = m.OutputReg('cva_out', c_bits * n_neighbors)
-        cva_v_out = m.OutputReg('cva_v_out', n_neighbors)
-        cvb_out = m.OutputReg('cvb_out', c_bits * n_neighbors)
-        cvb_v_out = m.OutputReg('cvb_v_out', n_neighbors)
-        dvac_out = m.OutputReg('dvac_out', n_neighbors * dist_bits)
-        dvbc_out = m.OutputReg('dvbc_out', n_neighbors * dist_bits)
+        lca_out = m.OutputReg('lca_out', lc_bits)
+        lcb_out = m.OutputReg('lcb_out', lc_bits)
+        lcva_out = m.OutputReg('lcva_out', lc_bits * n_neighbors)
+        lcva_v_out = m.OutputReg('lcva_v_out', n_neighbors)
+        lcvb_out = m.OutputReg('lcvb_out', lc_bits * n_neighbors)
+        lcvb_v_out = m.OutputReg('lcvb_v_out', n_neighbors)
         # -----
 
-        cac = m.Wire('cac', c_bits)
-        cbc = m.Wire('cbc', c_bits)
-        dvac_t = m.Wire('dvac_t', n_neighbors * dist_bits)
-        dvbc_t = m.Wire('dvbc_t', n_neighbors * dist_bits)
-
-        cac.assign(ca_in)
-        cbc.assign(cb_in)
+        lca_t = m.Wire('lca_t', lc_bits)
+        lcb_t = m.Wire('lcb_t', lc_bits)
+        lcva_t = m.Wire('lcva_t', lc_bits*n_neighbors)
+        lcvb_t = m.Wire('lcvb_t', lc_bits*n_neighbors)
 
         m.Always(Posedge(clk))(
             idx_out(idx_in),
             v_out(v_in),
-            ca_out(ca_in),
-            cb_out(cb_in),
-            cva_out(cva_in),
-            cva_v_out(cva_v_in),
-            cvb_out(cvb_in),
-            cvb_v_out(cvb_v_in),
+            lca_out(lca_t),
+            lcb_out(lcb_t),
+            lcva_out(lcva_t),
+            lcva_v_out(cva_v_in),
+            lcvb_out(lcvb_t),
+            lcvb_v_out(cvb_v_in)
+        )
+
+        aux = self.create_lc_table()
+        par = []
+        con = [
+            ('ca', ca_in),
+            ('cb', cb_in),
+            ('lca', lca_t),
+            ('lcb', lcb_t),
+        ]
+        m.Instance(aux, "%s_c" % aux.name, par, con)
+
+        for i in range(n_neighbors):
+            par = []
+            con = [
+                ('ca', cva_in[i * c_bits:c_bits * (i + 1)]),
+                ('cb', cvb_in[i * c_bits:c_bits * (i + 1)]),
+                ('lca', lcva_t[i * lc_bits:lc_bits * (i + 1)]),
+                ('lcb', lcvb_t[i * lc_bits:lc_bits * (i + 1)]),
+            ]
+            m.Instance(aux, '%s_v_%d' % (aux.name, (i)), par, con)
+
+        _u.initialize_regs(m)
+        self.cache[name] = m
+        return m
+
+    def create_st5_d1(self) -> Module:
+        sa_graph = self.sa_graph
+        n_cells = self.sa_graph.n_cells
+        n_neighbors = self.n_neighbors
+        align_bits = self.align_bits
+        n_threads = self.n_threads
+
+        name = 'st5_d1_%dth_%dcells' % (n_threads, n_cells)
+        if name in self.cache.keys():
+            return self.cache[name]
+
+        c_bits = ceil(log2(n_cells))
+        t_bits = ceil(log2(n_threads))
+        t_bits = 1 if t_bits == 0 else t_bits
+        node_bits = c_bits
+        lines = columns = int(sqrt(n_cells))
+        w_bits = t_bits + c_bits + node_bits + 1
+        dist_bits = c_bits + ceil(log2(n_neighbors * 2))
+        lc_bits = ceil(log2(lines)) * 2
+
+        m = Module(name)
+        clk = m.Input('clk')
+
+        # interface
+        idx_in = m.Input('idx_in', t_bits)
+        v_in = m.Input('v_in')
+        lca_in = m.Input('lca_in', lc_bits)
+        lcb_in = m.Input('lcb_in', lc_bits)
+        lcva_in = m.Input('lcva_in', lc_bits * n_neighbors)
+        lcva_v_in = m.Input('lcva_v_in', n_neighbors)
+        lcvb_in = m.Input('lcvb_in', lc_bits * n_neighbors)
+        lcvb_v_in = m.Input('lcvb_v_in', n_neighbors)
+
+        idx_out = m.OutputReg('idx_out', t_bits)
+        v_out = m.OutputReg('v_out')
+        lca_out = m.OutputReg('lca_out', lc_bits)
+        lcb_out = m.OutputReg('lcb_out', lc_bits)
+        lcva_out = m.OutputReg('lcva_out', lc_bits * n_neighbors)
+        lcva_v_out = m.OutputReg('lcva_v_out', n_neighbors)
+        lcvb_out = m.OutputReg('lcvb_out', lc_bits * n_neighbors)
+        lcvb_v_out = m.OutputReg('lcvb_v_out', n_neighbors)
+        dvac_out = m.OutputReg('dvac_out', n_neighbors * dist_bits)
+        dvbc_out = m.OutputReg('dvbc_out', n_neighbors * dist_bits)
+        # -----
+
+        lcac = m.Wire('lcac', c_bits)
+        lcbc = m.Wire('lcbc', c_bits)
+        dvac_t = m.Wire('dvac_t', n_neighbors * dist_bits)
+        dvbc_t = m.Wire('dvbc_t', n_neighbors * dist_bits)
+
+        lcac.assign(lca_in)
+        lcbc.assign(lcb_in)
+
+        m.Always(Posedge(clk))(
+            idx_out(idx_in),
+            v_out(v_in),
+            lca_out(lca_in),
+            lcb_out(lcb_in),
+            lcva_out(lcva_in),
+            lcva_v_out(lcva_v_in),
+            lcvb_out(lcvb_in),
+            lcvb_v_out(lcvb_v_in),
             dvac_out(dvac_t),
             dvbc_out(dvbc_t),
         )
@@ -1084,12 +1126,12 @@ class SAComponents:
         for i in range(0, (n_neighbors // 2) + 1, 2):
             par = []
             con = [
-                ('opa0', cac),
-                ('opa1', cva_in[i * c_bits:c_bits * (i + 1)]),
-                ('opav', cva_v_in[i]),
-                ('opb0', cac),
-                ('opb1', cva_in[c_bits * (i + 1):c_bits * (i + 2)]),
-                ('opbv', cva_v_in[i + 1]),
+                ('opa0', lcac),
+                ('opa1', lcva_in[i * lc_bits:lc_bits * (i + 1)]),
+                ('opav', lcva_v_in[i]),
+                ('opb0', lcac),
+                ('opb1', lcva_in[lc_bits * (i + 1):lc_bits * (i + 2)]),
+                ('opbv', lcva_v_in[i + 1]),
                 ('da', dvac_t[i * dist_bits:dist_bits * (i + 1)]),
                 ('db', dvac_t[dist_bits * (i + 1):dist_bits * (i + 2)]),
             ]
@@ -1099,12 +1141,12 @@ class SAComponents:
         for i in range(0, (n_neighbors // 2) + 1, 2):
             par = []
             con = [
-                ('opa0', cbc),
-                ('opa1', cvb_in[i * c_bits:c_bits * (i + 1)]),
-                ('opav', cvb_v_in[i]),
-                ('opb0', cbc),
-                ('opb1', cvb_in[c_bits * (i + 1):c_bits * (i + 2)]),
-                ('opbv', cvb_v_in[i + 1]),
+                ('opa0', lcbc),
+                ('opa1', lcvb_in[i * lc_bits:lc_bits * (i + 1)]),
+                ('opav', lcvb_v_in[i]),
+                ('opb0', lcbc),
+                ('opb1', lcvb_in[lc_bits * (i + 1):lc_bits * (i + 2)]),
+                ('opbv', lcvb_v_in[i + 1]),
                 ('da', dvbc_t[i * dist_bits:dist_bits * (i + 1)]),
                 ('db', dvbc_t[dist_bits * (i + 1):dist_bits * (i + 2)]),
             ]
@@ -1124,7 +1166,7 @@ class SAComponents:
         align_bits = self.align_bits
         n_threads = self.n_threads
 
-        name = 'st5_d2_s1_%dth_%dcells' % (n_threads, n_cells)
+        name = 'st6_d2_s1_%dth_%dcells' % (n_threads, n_cells)
         if name in self.cache.keys():
             return self.cache[name]
 
@@ -1135,6 +1177,7 @@ class SAComponents:
         lines = columns = int(sqrt(n_cells))
         w_bits = t_bits + c_bits + node_bits + 1
         dist_bits = c_bits + ceil(log2(n_neighbors * 2))
+        lc_bits = ceil(log2(lines)) * 2
 
         m = Module(name)
         clk = m.Input('clk')
@@ -1142,12 +1185,12 @@ class SAComponents:
         # interface
         idx_in = m.Input('idx_in', t_bits)
         v_in = m.Input('v_in')
-        ca_in = m.Input('ca_in', c_bits)
-        cb_in = m.Input('cb_in', c_bits)
-        cva_in = m.Input('cva_in', c_bits * n_neighbors)
-        cva_v_in = m.Input('cva_v_in', n_neighbors)
-        cvb_in = m.Input('cvb_in', c_bits * n_neighbors)
-        cvb_v_in = m.Input('cvb_v_in', n_neighbors)
+        lca_in = m.Input('lca_in', lc_bits)
+        lcb_in = m.Input('lcb_in', lc_bits)
+        lcva_in = m.Input('lcva_in', lc_bits * n_neighbors)
+        lcva_v_in = m.Input('lcva_v_in', n_neighbors)
+        lcvb_in = m.Input('lcvb_in', lc_bits * n_neighbors)
+        lcvb_v_in = m.Input('lcvb_v_in', n_neighbors)
         dvac_in = m.Input('dvac_in', n_neighbors * dist_bits)
         dvbc_in = m.Input('dvbc_in', n_neighbors * dist_bits)
 
@@ -1159,16 +1202,16 @@ class SAComponents:
         dvbs_out = m.OutputReg('dvbs_out', n_neighbors * dist_bits)
         # -----
 
-        cas = m.Wire('cas', c_bits)
-        cbs = m.Wire('cbs', c_bits)
-        opva = m.Wire('opva', c_bits * n_neighbors)
-        opvb = m.Wire('opvb', c_bits * n_neighbors)
+        lcas = m.Wire('lcas', lc_bits)
+        lcbs = m.Wire('lcbs', lc_bits)
+        opva = m.Wire('opva', lc_bits * n_neighbors)
+        opvb = m.Wire('opvb', lc_bits * n_neighbors)
         dvac_t = m.Wire('dvac_t', dvac_out.width)
         dvbc_t = m.Wire('dvbc_t', dvbc_out.width)
         dvas_t = m.Wire('dvas_t', n_neighbors * dist_bits)
         dvbs_t = m.Wire('dvbs_t', n_neighbors * dist_bits)
-        cas.assign(cb_in)
-        cbs.assign(ca_in)
+        lcas.assign(lcb_in)
+        lcbs.assign(lca_in)
 
         for i in range(0, (n_neighbors // 2) + 1, 2):
             n = i // 2
@@ -1181,12 +1224,12 @@ class SAComponents:
                 dvbc_in[i * dist_bits:dist_bits * (i + 1)] + dvbc_in[dist_bits * (i + 1):dist_bits * (i + 2)])
 
         for i in range(n_neighbors):
-            opva[i * c_bits:c_bits * (i + 1)].assign(Mux(cva_in[i * c_bits:c_bits * (i + 1)]
-                                                         == cas, cbs, cva_in[i * c_bits:c_bits * (i + 1)]))
+            opva[i * lc_bits:lc_bits * (i + 1)].assign(Mux(lcva_in[i * lc_bits:lc_bits * (i + 1)]
+                                                           == lcas, lcbs, lcva_in[i * lc_bits:lc_bits * (i + 1)]))
 
         for i in range(n_neighbors):
-            opvb[i * c_bits:c_bits * (i + 1)].assign(Mux(cvb_in[i * c_bits:c_bits * (i + 1)]
-                                                         == cbs, cas, cvb_in[i * c_bits:c_bits * (i + 1)]))
+            opvb[i * lc_bits:lc_bits * (i + 1)].assign(Mux(lcvb_in[i * lc_bits:lc_bits * (i + 1)]
+                                                           == lcbs, lcas, lcvb_in[i * lc_bits:lc_bits * (i + 1)]))
 
         m.Always(Posedge(clk))(
             idx_out(idx_in),
@@ -1200,12 +1243,12 @@ class SAComponents:
         for i in range(0, (n_neighbors // 2) + 1, 2):
             par = []
             con = [
-                ('opa0', cas),
-                ('opa1', opva[i * c_bits:c_bits * (i + 1)]),
-                ('opav', cva_v_in[i]),
-                ('opb0', cas),
-                ('opb1', opva[c_bits * (i + 1):c_bits * (i + 2)]),
-                ('opbv', cva_v_in[i + 1]),
+                ('opa0', lcas),
+                ('opa1', opva[i * lc_bits:lc_bits * (i + 1)]),
+                ('opav', lcva_v_in[i]),
+                ('opb0', lcas),
+                ('opb1', opva[lc_bits * (i + 1):lc_bits * (i + 2)]),
+                ('opbv', lcva_v_in[i + 1]),
                 ('da', dvas_t[i * dist_bits:dist_bits * (i + 1)]),
                 ('db', dvas_t[dist_bits * (i + 1):dist_bits * (i + 2)]),
             ]
@@ -1215,12 +1258,12 @@ class SAComponents:
         for i in range(0, (n_neighbors // 2) + 1, 2):
             par = []
             con = [
-                ('opa0', cbs),
-                ('opa1', opvb[i * c_bits:c_bits * (i + 1)]),
-                ('opav', cvb_v_in[i]),
-                ('opb0', cbs),
-                ('opb1', opvb[c_bits * (i + 1):c_bits * (i + 2)]),
-                ('opbv', cvb_v_in[i + 1]),
+                ('opa0', lcbs),
+                ('opa1', opvb[i * lc_bits:lc_bits * (i + 1)]),
+                ('opav', lcvb_v_in[i]),
+                ('opb0', lcbs),
+                ('opb1', opvb[lc_bits * (i + 1):lc_bits * (i + 2)]),
+                ('opbv', lcvb_v_in[i + 1]),
                 ('da', dvbs_t[i * dist_bits:dist_bits * (i + 1)]),
                 ('db', dvbs_t[dist_bits * (i + 1):dist_bits * (i + 2)]),
             ]
@@ -1230,6 +1273,7 @@ class SAComponents:
         _u.initialize_regs(m)
         self.cache[name] = m
         return m
+        lc_bits = ceil(log2(lines)) * 2
 
     def create_st7_s2(self) -> Module:
         sa_graph = self.sa_graph
@@ -1238,7 +1282,7 @@ class SAComponents:
         align_bits = self.align_bits
         n_threads = self.n_threads
 
-        name = 'st6_s2_%dth_%dcells' % (n_threads, n_cells)
+        name = 'st7_s2_%dth_%dcells' % (n_threads, n_cells)
         if name in self.cache.keys():
             return self.cache[name]
 
@@ -1307,7 +1351,7 @@ class SAComponents:
         align_bits = self.align_bits
         n_threads = self.n_threads
 
-        name = 'st7_s3_%dth_%dcells' % (n_threads, n_cells)
+        name = 'st8_s3_%dth_%dcells' % (n_threads, n_cells)
         if name in self.cache.keys():
             return self.cache[name]
 
@@ -1364,7 +1408,7 @@ class SAComponents:
         align_bits = self.align_bits
         n_threads = self.n_threads
 
-        name = 'st8_s4_%dth_%dcells' % (n_threads, n_cells)
+        name = 'st9_s4_%dth_%dcells' % (n_threads, n_cells)
         if name in self.cache.keys():
             return self.cache[name]
 
@@ -1407,16 +1451,14 @@ class SAComponents:
         self.cache[name] = m
         return m
 
-    # deprecated
-
-    def create_st10_reg(self) -> Module:
+    def create_st10_cmp(self) -> Module:
         sa_graph = self.sa_graph
         n_cells = self.sa_graph.n_cells
         n_neighbors = self.n_neighbors
         align_bits = self.align_bits
         n_threads = self.n_threads
 
-        name = 'st10_reg_%dth_%dcells' % (n_threads, n_cells)
+        name = 'st10_cmp_%dth_%dcells' % (n_threads, n_cells)
         if name in self.cache.keys():
             return self.cache[name]
 
@@ -1434,19 +1476,22 @@ class SAComponents:
         # interface
         idx_in = m.Input('idx_in', t_bits)
         v_in = m.Input('v_in')
-        sw_in = m.Input('sw_in')
+        dc_in = m.Input('dc_in', dist_bits)
+        ds_in = m.Input('ds_in', dist_bits)
 
         idx_out = m.OutputReg('idx_out', t_bits)
         v_out = m.OutputReg('v_out')
         sw_out = m.OutputReg('sw_out')
+        # -----
+
+        sw_t = m.Wire('sw_t')
+        sw_t.assign(ds_in < dc_in)
 
         m.Always(Posedge(clk))(
             idx_out(idx_in),
             v_out(v_in),
-            sw_out(sw_in)
+            sw_out(sw_t)
         )
-
-        # -----
 
         _u.initialize_regs(m)
         self.cache[name] = m
@@ -1470,6 +1515,7 @@ class SAComponents:
         lines = columns = int(sqrt(n_cells))
         w_bits = t_bits + c_bits + node_bits + 1
         dist_bits = c_bits + ceil(log2(n_neighbors * 2))
+        lc_bits = ceil(log2(lines)) * 2
 
         m = Module(name)
 
@@ -1579,72 +1625,77 @@ class SAComponents:
 
         # st4 output wires
         m.EmbeddedCode('// st4 output wires')
-        st5_idx = m.Wire('st4_idx', t_bits)
-        st5_v = m.Wire('st4_v')
-        st5_ca = m.Wire('st4_ca', c_bits)
-        st5_cb = m.Wire('st4_cb', c_bits)
-        st5_cva = m.Wire('st4_cva', c_bits * n_neighbors)
-        st5_cva_v = m.Wire('st4_cva_v', n_neighbors)
-        st5_cvb = m.Wire('st4_cvb', c_bits * n_neighbors)
-        st5_cvb_v = m.Wire('st4_cvb_v', n_neighbors)
-        st5_dvac = m.Wire('st4_dvac', n_neighbors * dist_bits)
-        st5_dvbc = m.Wire('st4_dvbc', n_neighbors * dist_bits)
+        st4_idx = m.OutputReg('st4_idx', t_bits)
+        st4_v = m.OutputReg('st4_v')
+        st4_lca = m.OutputReg('st4_lca', lc_bits)
+        st4_lcb = m.OutputReg('st4_lcb', lc_bits)
+        st4_lcva = m.OutputReg('st4_lcva', lc_bits * n_neighbors)
+        st4_lcva_v = m.OutputReg('st4_lcva_v', n_neighbors)
+        st4_lcvb = m.OutputReg('st4_lcvb', lc_bits * n_neighbors)
+        st4_lcvb_v = m.OutputReg('st4_lcvb_v', n_neighbors)
         m.EmbeddedCode('// -----')
         # -----
 
         # st5 output wires
         m.EmbeddedCode('// st5 output wires')
-        st6_idx = m.Wire('st5_idx', t_bits)
-        st6_v = m.Wire('st5_v')
-        st6_dvac = m.Wire('st5_dvac', n_neighbors // 2 * dist_bits)
-        st6_dvbc = m.Wire('st5_dvbc', n_neighbors // 2 * dist_bits)
-        st6_dvas = m.Wire('st5_dvas', n_neighbors * dist_bits)
-        st6_dvbs = m.Wire('st5_dvbs', n_neighbors * dist_bits)
+        st5_idx = m.Wire('st5_idx', t_bits)
+        st5_v = m.Wire('st5_v')
+        st5_lca = m.Wire('st5_lca', lc_bits)
+        st5_lcb = m.Wire('st5_lcb', lc_bits)
+        st5_lcva = m.Wire('st5_lcva', lc_bits * n_neighbors)
+        st5_lcva_v = m.Wire('st5_lcva_v', n_neighbors)
+        st5_lcvb = m.Wire('st5_lcvb', lc_bits * n_neighbors)
+        st5_lcvb_v = m.Wire('st5_lcvb_v', n_neighbors)
+        st5_dvac = m.Wire('st5_dvac', n_neighbors * dist_bits)
+        st5_dvbc = m.Wire('st5_dvbc', n_neighbors * dist_bits)
         m.EmbeddedCode('// -----')
         # -----
 
         # st6 output wires
         m.EmbeddedCode('// st6 output wires')
-        st7_idx = m.Wire('st6_idx', t_bits)
-        st7_v = m.Wire('st6_v')
-        st7_dvac = m.Wire('st6_dvac', dist_bits)
-        st7_dvbc = m.Wire('st6_dvbc', dist_bits)
-        st7_dvas = m.Wire('st6_dvas', n_neighbors // 2 * dist_bits)
-        st7_dvbs = m.Wire('st6_dvbs', n_neighbors // 2 * dist_bits)
+        st6_idx = m.Wire('st6_idx', t_bits)
+        st6_v = m.Wire('st6_v')
+        st6_dvac = m.Wire('st6_dvac', n_neighbors // 2 * dist_bits)
+        st6_dvbc = m.Wire('st6_dvbc', n_neighbors // 2 * dist_bits)
+        st6_dvas = m.Wire('st6_dvas', n_neighbors * dist_bits)
+        st6_dvbs = m.Wire('st6_dvbs', n_neighbors * dist_bits)
         m.EmbeddedCode('// -----')
         # -----
 
         # st7 output wires
         m.EmbeddedCode('// st7 output wires')
-        st8_idx = m.Wire('st7_idx', t_bits)
-        st8_v = m.Wire('st7_v')
-        st8_dc = m.Wire('st7_dc', dist_bits)
-        st8_dvas = m.Wire('st7_dvas', dist_bits)
-        st8_dvbs = m.Wire('st7_dvbs', dist_bits)
-
-        # st8 output wires
-        m.EmbeddedCode('// st8 output wires')
-        st9_idx = m.Wire('st8_idx', t_bits)
-        st9_v = m.Wire('st8_v')
-        st9_dc = m.Wire('st8_dc', dist_bits)
-        st9_ds = m.Wire('st8_ds', dist_bits)
+        st7_idx = m.Wire('st7_idx', t_bits)
+        st7_v = m.Wire('st7_v')
+        st7_dvac = m.Wire('st7_dvac', dist_bits)
+        st7_dvbc = m.Wire('st7_dvbc', dist_bits)
+        st7_dvas = m.Wire('st7_dvas', n_neighbors // 2 * dist_bits)
+        st7_dvbs = m.Wire('st7_dvbs', n_neighbors // 2 * dist_bits)
         m.EmbeddedCode('// -----')
         # -----
 
+        # st8 output wires
+        m.EmbeddedCode('// st8 output wires')
+        st8_idx = m.Wire('st8_idx', t_bits)
+        st8_v = m.Wire('st8_v')
+        st8_dc = m.Wire('st8_dc', dist_bits)
+        st8_dvas = m.Wire('st8_dvas', dist_bits)
+        st8_dvbs = m.Wire('st8_dvbs', dist_bits)
+
         # st9 output wires
         m.EmbeddedCode('// st9 output wires')
-        st10_idx = m.Wire('st9_idx', t_bits)
-        st10_v = m.Wire('st9_v')
-        st10_sw = m.Wire('st9_sw')
+        st9_idx = m.Wire('st9_idx', t_bits)
+        st9_v = m.Wire('st9_v')
+        st9_dc = m.Wire('st9_dc', dist_bits)
+        st9_ds = m.Wire('st9_ds', dist_bits)
         m.EmbeddedCode('// -----')
         # -----
 
         # st10 output wires
-        #m.EmbeddedCode('// st10 output wires')
-        #st10_idx = m.Wire('st10_idx', t_bits)
-        #st10_v = m.Wire('st10_v')
-        #st10_sw = m.Wire('st10_sw')
-        #m.EmbeddedCode('// -----')
+        m.EmbeddedCode('// st10 output wires')
+        st10_idx = m.Wire('st10_idx', t_bits)
+        st10_v = m.Wire('st10_v')
+        st10_sw = m.Wire('st10_sw')
+        m.EmbeddedCode('// -----')
         # -----
 
         pipe_start.assign(Uand(Cat(start, st1_rdy)))
@@ -1780,14 +1831,37 @@ class SAComponents:
             ('cva_v_in', st3_cva_v),
             ('cvb_in', st3_cvb),
             ('cvb_v_in', st3_cvb_v),
+            ('idx_out', st4_idx),
+            ('v_out', st4_v),
+            ('lca_out', st4_lca),
+            ('lcb_out', st4_lcb),
+            ('lcva_out', st4_lcva),
+            ('lcva_v_out', st4_lcva_v),
+            ('lcvb_out', st4_lcvb),
+            ('lcvb_v_out', st4_lcvb_v),
+        ]
+        aux = self.create_st4_lcf()
+        m.Instance(aux, aux.name, par, con)
+
+        par = []
+        con = [
+            ('clk', clk),
+            ('idx_in', st4_idx),
+            ('v_in', st4_v),
+            ('lca_in', st4_lca),
+            ('lcb_in', st4_lcb),
+            ('lcva_in', st4_lcva),
+            ('lcva_v_in', st4_lcva_v),
+            ('lcvb_in', st4_lcvb),
+            ('lcvb_v_in', st4_lcvb_v),
             ('idx_out', st5_idx),
             ('v_out', st5_v),
-            ('ca_out', st5_ca),
-            ('cb_out', st5_cb),
-            ('cva_out', st5_cva),
-            ('cva_v_out', st5_cva_v),
-            ('cvb_out', st5_cvb),
-            ('cvb_v_out', st5_cvb_v),
+            ('lca_out', st5_lca),
+            ('lcb_out', st5_lcb),
+            ('lcva_out', st5_lcva),
+            ('lcva_v_out', st5_lcva_v),
+            ('lcvb_out', st5_lcvb),
+            ('lcvb_v_out', st5_lcvb_v),
             ('dvac_out', st5_dvac),
             ('dvbc_out', st5_dvbc)
         ]
@@ -1799,12 +1873,12 @@ class SAComponents:
             ('clk', clk),
             ('idx_in', st5_idx),
             ('v_in', st5_v),
-            ('ca_in', st5_ca),
-            ('cb_in', st5_cb),
-            ('cva_in', st5_cva),
-            ('cva_v_in', st5_cva_v),
-            ('cvb_in', st5_cvb),
-            ('cvb_v_in', st5_cvb_v),
+            ('lca_in', st5_lca),
+            ('lcb_in', st5_lcb),
+            ('lcva_in', st5_lcva),
+            ('lcva_v_in', st5_lcva_v),
+            ('lcvb_in', st5_lcvb),
+            ('lcvb_v_in', st5_lcvb_v),
             ('dvac_in', st5_dvac),
             ('dvbc_in', st5_dvbc),
             ('idx_out', st6_idx),
