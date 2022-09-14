@@ -1625,14 +1625,14 @@ class SAComponents:
 
         # st4 output wires
         m.EmbeddedCode('// st4 output wires')
-        st4_idx = m.OutputReg('st4_idx', t_bits)
-        st4_v = m.OutputReg('st4_v')
-        st4_lca = m.OutputReg('st4_lca', lc_bits)
-        st4_lcb = m.OutputReg('st4_lcb', lc_bits)
-        st4_lcva = m.OutputReg('st4_lcva', lc_bits * n_neighbors)
-        st4_lcva_v = m.OutputReg('st4_lcva_v', n_neighbors)
-        st4_lcvb = m.OutputReg('st4_lcvb', lc_bits * n_neighbors)
-        st4_lcvb_v = m.OutputReg('st4_lcvb_v', n_neighbors)
+        st4_idx = m.Wire('st4_idx', t_bits)
+        st4_v = m.Wire('st4_v')
+        st4_lca = m.Wire('st4_lca', lc_bits)
+        st4_lcb = m.Wire('st4_lcb', lc_bits)
+        st4_lcva = m.Wire('st4_lcva', lc_bits * n_neighbors)
+        st4_lcva_v = m.Wire('st4_lcva_v', n_neighbors)
+        st4_lcvb = m.Wire('st4_lcvb', lc_bits * n_neighbors)
+        st4_lcvb_v = m.Wire('st4_lcvb_v', n_neighbors)
         m.EmbeddedCode('// -----')
         # -----
 

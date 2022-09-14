@@ -173,7 +173,6 @@ def create_sa_aws_test_bench(comp: _comp.SAComponents) -> str:
     dist_bits = c_bits + ceil(log2(n_neighbors * 2))
     lc_bits = ceil(log2(lines)) * 2
 
-
     m = Module('test_bench_sa_acc')
 
     clk = m.Reg('clk')
@@ -208,7 +207,7 @@ def create_sa_aws_test_bench(comp: _comp.SAComponents) -> str:
                     sa_aws_read_data(Int(1, 16, 10)),
                     If(AndList(sa_aws_request_read, sa_aws_read_data_valid))(
                         sa_aws_read_data_valid(0),
-                        #fsm_produce_data(fsm_done)
+                        # fsm_produce_data(fsm_done)
                     ),
                 ),
                 When(fsm_done)(
@@ -281,6 +280,70 @@ def create_sa_aws_test_bench(comp: _comp.SAComponents) -> str:
     m.EmbeddedCode('always #5clk=~clk;')
     m.Always(Posedge(clk))(
         If(sa_aws_done)(
+            Display('ACC DONE!'),
+            Finish()
+        )
+    )
+    m.EmbeddedCode('\n//Simulation sector - End')
+    m.to_verilog(os.getcwd() + "/verilog/sa_aws_testbench.v")
+    #sim = simulation.Simulator(m, sim='iverilog')
+    # rslt = sim.run()
+    # print(rslt)
+
+
+def create_sa_pipeline_test_bench(comp: _comp.SAComponents) -> str:
+    _u.create_rom_files(comp, os.getcwd() + "/verilog")
+
+    bus_width = 16
+    sa_graph = comp.sa_graph
+    n_cells = comp.n_cells
+    n_neighbors = comp.n_neighbors
+    align_bits = comp.align_bits
+    n_threads = comp.n_threads
+
+    c_bits = ceil(log2(n_cells))
+    t_bits = ceil(log2(n_threads))
+    t_bits = 1 if t_bits == 0 else t_bits
+    node_bits = c_bits
+    lines = columns = int(sqrt(n_cells))
+    w_bits = t_bits + c_bits + node_bits + 1
+    dist_bits = c_bits + ceil(log2(n_neighbors * 2))
+    lc_bits = ceil(log2(lines)) * 2
+
+    m = Module('test_bench_sa_pipeline')
+
+    clk = m.Reg('clk')
+    rst = m.Reg('rst')
+    start = m.Reg('start')
+
+    done = m.Wire('done')
+
+    par = []
+    con = [
+        ('clk', clk),
+        ('rst', rst),
+        ('start', start),
+        ('n_exec', Int(1, 16, 10)),
+        ('rd',0),
+        ('done',done),
+    ]
+    #aws = _aws.SaAws()
+    aux = comp.create_sa_pipeline()#aws.get(comp.sa_graph, bus_width)
+    m.Instance(aux, aux.name, par, con)
+
+    _u.initialize_regs(m, {'clk': 0, 'rst': 1, 'start': 0})
+    simulation.setup_waveform(m)
+    m.Initial(
+        EmbeddedCode('@(posedge clk);'),
+        EmbeddedCode('@(posedge clk);'),
+        EmbeddedCode('@(posedge clk);'),
+        rst(0),
+        start(1),
+        Delay(40000), Finish()
+    )
+    m.EmbeddedCode('always #5clk=~clk;')
+    m.Always(Posedge(clk))(
+        If(done)(
             Display('ACC DONE!'),
             Finish()
         )

@@ -28,4 +28,4 @@ acc.get().to_verilog(os.getcwd() + "/verilog/sa_aws_10x10_10c")
 #sa_graph.n_cells_sqrt = 9
 sa_comp = sac.SAComponents(sa_graph=sa_graph, n_threads=6, n_neighbors=4)
 #sa_comp.create_st4_lcf().to_verilog('st4.v')
-test_bench = _t.create_sa_aws_test_bench(sa_comp)
+test_bench = _t.create_sa_pipeline_test_bench(sa_comp)
