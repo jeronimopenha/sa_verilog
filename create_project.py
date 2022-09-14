@@ -37,6 +37,8 @@ def create_args():
 
 def create_project(sa_root, dot_file, copies, name, output_path):
     sa_graph = _u.SaGraph(dot_file)
+    #sa_graph.n_cells = 144
+    #sa_graph.n_cells_sqrt = 12
     sa_acc = _sa.SaAccelerator(sa_graph, copies)
     acc_axi = AccAXIInterface(sa_acc)
 
