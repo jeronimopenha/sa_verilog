@@ -51,7 +51,7 @@ module test_bench_sa_pipeline
     if(done) begin
       $display("ACC DONE!");
       $finish;
-    end 
+    end
   end
 
 
