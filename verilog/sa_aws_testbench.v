@@ -226,13 +226,14 @@ module sa_pipeline_6th_16cells
   wire [12-1:0] st10_wa;
   wire [12-1:0] st10_wb;
   // -----
+  assign pipe_start = start;
 
   th_controller_6th_16cells
   th_controller_6th_16cells
   (
     .clk(clk),
     .rst(rst),
-    .start(start),
+    .start(pipe_start),
     .done(done),
     .idx_out(th_idx),
     .v_out(th_v),
@@ -517,7 +518,9 @@ module sa_pipeline_6th_16cells
     .pwb_in(st9_pwb),
     .idx_out(st10_idx),
     .v_out(st10_v),
-    .sw_out(st10_sw)
+    .sw_out(st10_sw),
+    .wa_out(st10_wa),
+    .wb_out(st10_wb)
   );
 
 

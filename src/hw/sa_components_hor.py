@@ -1230,12 +1230,14 @@ class SASaComponentsHor(SaComponents):
         m.EmbeddedCode('// -----')
         # -----
 
+        pipe_start.assign(start)
+
         # modules instantiations
         par = []
         con = [
             ('clk', clk),
             ('rst', rst),
-            ('start', start),
+            ('start', pipe_start),
             ('done', done),
             ('idx_out', th_idx),
             ('v_out', th_v),
@@ -1521,25 +1523,13 @@ class SASaComponentsHor(SaComponents):
             ('pwb_in', st9_pwb),
             ('idx_out', st10_idx),
             ('v_out', st10_v),
-            ('sw_out', st10_sw)
+            ('sw_out', st10_sw),
+            ('wa_out', st10_wa),
+            ('wb_out', st10_wb)
         ]
         aux = self.create_st10_cmp()
         m.Instance(aux, aux.name, par, con)
 
-        '''
-        par = []
-        con = [
-            ('clk', clk),
-            ('idx_in', st9_idx),
-            ('v_in', st9_v),
-            ('sw_in', st9_sw),
-            ('idx_out', st10_idx),
-            ('v_out', st10_v),
-            ('sw_out', st10_sw)
-        ]
-        aux = self.create_st10_reg()
-        m.Instance(aux, aux.name, par, con)
-        '''
         # -----
 
         Util.initialize_regs(m)
