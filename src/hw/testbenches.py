@@ -1,12 +1,10 @@
 from veriloggen import *
 from math import ceil, log2, sqrt
-import src.hw.sa_components as _sa
-import src.utils.util as _u
-import src.hw.sa_aws as _aws
-import src.hw.sa_components as _comp
+from src.hw.sa_components import SaComponents
+from src.utils.util import Util
 
 
-def create_threads_controller_test_bench(sa_comp: _sa.SAComponents) -> str:
+def create_threads_controller_test_bench(sa_comp: SaComponents) -> str:
     sa_graph = sa_comp.sa_graph
     n_cells = sa_comp.sa_graph.n_cells
     n_neighbors = sa_comp.n_neighbors
@@ -48,7 +46,7 @@ def create_threads_controller_test_bench(sa_comp: _sa.SAComponents) -> str:
     aux = sa_comp.create_threads_controller()
     m.Instance(aux, aux.name, par, con)
 
-    _u.initialize_regs(m, {"clk": 0, "rst": 1, "start": 0})
+    Util.initialize_regs(m, {"clk": 0, "rst": 1, "start": 0})
     simulation.setup_waveform(m)
     m.Initial(
         EmbeddedCode("@(posedge clk);"),
@@ -72,7 +70,7 @@ def create_threads_controller_test_bench(sa_comp: _sa.SAComponents) -> str:
     # print(rslt)
 
 
-def create_sa_verilog_test_bench(sa_comp: _sa.SAComponents) -> str:
+def create_sa_verilog_test_bench(sa_comp: SaComponents) -> str:
     sa_graph = sa_comp.sa_graph
     n_cells = sa_comp.sa_graph.n_cells
     n_neighbors = sa_comp.n_neighbors
@@ -94,7 +92,7 @@ def create_sa_verilog_test_bench(sa_comp: _sa.SAComponents) -> str:
 
     # FIXME
     # 1º - Create the memory archives: c-n n-c and neighbors
-    _u.create_rom_files(sa_comp)
+    Util.create_rom_files(sa_comp)
 
     # 2º - Create testbench and execute it
 
@@ -118,7 +116,7 @@ def create_sa_verilog_test_bench(sa_comp: _sa.SAComponents) -> str:
     aux = sa_comp.create_sa_pipeline()
     m.Instance(aux, aux.name, par, con)
 
-    _u.initialize_regs(m, {"clk": 0, "rst": 1, "start": 0})
+    Util.initialize_regs(m, {"clk": 0, "rst": 1, "start": 0})
     simulation.setup_waveform(m)
     m.Initial(
         EmbeddedCode("@(posedge clk);"),
@@ -147,15 +145,15 @@ def create_sa_verilog_test_bench(sa_comp: _sa.SAComponents) -> str:
     sim = simulation.Simulator(m, sim="iverilog")
     rslt = sim.run()
     print(rslt)
-    _u.create_dot_from_rom_files(
+    Util.create_dot_from_rom_files(
         os.getcwd() + '/rom/c_n.rom', 'ini_th', os.getcwd() + '/rom/', n_threads, n_cells)
-    _u.create_dot_from_rom_files(
+    Util.create_dot_from_rom_files(
         os.getcwd() + '/rom/c_n_out.rom', 'end_th', os.getcwd() + '/rom/', n_threads, n_cells)
     print(sa_graph.neighbors)
 
 
-def create_sa_aws_test_bench(comp: _comp.SAComponents) -> str:
-    _u.create_rom_files(comp, os.getcwd() + "/verilog")
+def create_sa_aws_test_bench(comp: SaComponents) -> str:
+    Util.create_rom_files(comp, os.getcwd() + "/verilog")
 
     bus_width = 16
     sa_graph = comp.sa_graph
@@ -268,7 +266,7 @@ def create_sa_aws_test_bench(comp: _comp.SAComponents) -> str:
     aux = aws.get(comp.sa_graph, bus_width)
     m.Instance(aux, aux.name, par, con)
 
-    _u.initialize_regs(m, {'clk': 0, 'rst': 1, 'start': 0})
+    Util.initialize_regs(m, {'clk': 0, 'rst': 1, 'start': 0})
     simulation.setup_waveform(m)
     m.Initial(
         EmbeddedCode('@(posedge clk);'),
@@ -286,13 +284,13 @@ def create_sa_aws_test_bench(comp: _comp.SAComponents) -> str:
     )
     m.EmbeddedCode('\n//Simulation sector - End')
     m.to_verilog(os.getcwd() + "/verilog/sa_aws_testbench.v")
-    #sim = simulation.Simulator(m, sim='iverilog')
+    # sim = simulation.Simulator(m, sim='iverilog')
     # rslt = sim.run()
     # print(rslt)
 
 
-def create_sa_pipeline_test_bench(comp: _comp.SAComponents) -> str:
-    _u.create_rom_files(comp, os.getcwd() + "/verilog")
+def create_sa_pipeline_test_bench(comp: SaComponents):
+    Util.create_rom_files(comp, os.getcwd() + "/verilog")
 
     bus_width = 16
     sa_graph = comp.sa_graph
@@ -324,15 +322,15 @@ def create_sa_pipeline_test_bench(comp: _comp.SAComponents) -> str:
         ('rst', rst),
         ('start', start),
         ('n_exec', Int(1, 16, 10)),
-        ('rd',0),
-        ('done',done),
+        ('rd', 0),
+        ('done', done),
     ]
-    #aws = _aws.SaAws()
-    aux = comp.create_sa_pipeline()#aws.get(comp.sa_graph, bus_width)
+    # aws = _aws.SaAws()
+    aux = comp.create_sa_pipeline()  # aws.get(comp.sa_graph, bus_width)
     m.Instance(aux, aux.name, par, con)
 
-    _u.initialize_regs(m, {'clk': 0, 'rst': 1, 'start': 0})
-    simulation.setup_waveform(m)
+    Util.initialize_regs(m, {'clk': 0, 'rst': 1, 'start': 0})
+    simulation.setup_waveform(m, dumpfile='uut.vcd')
     m.Initial(
         EmbeddedCode('@(posedge clk);'),
         EmbeddedCode('@(posedge clk);'),
@@ -350,6 +348,6 @@ def create_sa_pipeline_test_bench(comp: _comp.SAComponents) -> str:
     )
     m.EmbeddedCode('\n//Simulation sector - End')
     m.to_verilog(os.getcwd() + "/verilog/sa_aws_testbench.v")
-    #sim = simulation.Simulator(m, sim='iverilog')
+    # sim = simulation.Simulator(m, sim='iverilog')
     # rslt = sim.run()
     # print(rslt)

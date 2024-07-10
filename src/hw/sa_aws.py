@@ -1,5 +1,5 @@
 from veriloggen import *
-import src.hw.sa_components as _sa
+import src.hw.sa_components_vert as _sa
 import src.utils.util as _u
 from math import ceil, log2, sqrt
 
@@ -11,7 +11,7 @@ class SaAws:
         # self.copies = copies
         self.bus_width = bus_width
         self.pipe_width = 16
-        self.sa_components = _sa.SAComponents(sa_graph)
+        self.sa_components = _sa.SAComponentsVert(sa_graph)
         return self.__create_sa_aws()
 
     def __create_sa_aws(self):

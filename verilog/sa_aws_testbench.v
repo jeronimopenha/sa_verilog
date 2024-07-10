@@ -51,7 +51,7 @@ module test_bench_sa_pipeline
     if(done) begin
       $display("ACC DONE!");
       $finish;
-    end
+    end 
   end
 
 
@@ -111,7 +111,6 @@ module sa_pipeline_6th_16cells
   end
 
   // st1 output wires
-  wire st1_rdy;
   wire [3-1:0] st1_idx;
   wire st1_v;
   wire [4-1:0] st1_ca;
@@ -123,6 +122,8 @@ module sa_pipeline_6th_16cells
   wire st1_sw;
   wire [12-1:0] st1_wa;
   wire [12-1:0] st1_wb;
+  wire [12-1:0] st1_pwa;
+  wire [12-1:0] st1_pwb;
   // -----
   // st2 output wires
   wire [3-1:0] st2_idx;
@@ -140,6 +141,8 @@ module sa_pipeline_6th_16cells
   wire st2_sw;
   wire [12-1:0] st2_wa;
   wire [12-1:0] st2_wb;
+  wire [12-1:0] st2_pwa;
+  wire [12-1:0] st2_pwb;
   // -----
   // st3 output wires
   wire [3-1:0] st3_idx;
@@ -151,6 +154,8 @@ module sa_pipeline_6th_16cells
   wire [16-1:0] st3_cvb;
   wire [4-1:0] st3_cvb_v;
   wire [12-1:0] st3_wb;
+  wire [12-1:0] st3_pwa;
+  wire [12-1:0] st3_pwb;
   // -----
   // st4 output wires
   wire [3-1:0] st4_idx;
@@ -161,6 +166,8 @@ module sa_pipeline_6th_16cells
   wire [4-1:0] st4_lcva_v;
   wire [16-1:0] st4_lcvb;
   wire [4-1:0] st4_lcvb_v;
+  wire [12-1:0] st4_pwa;
+  wire [12-1:0] st4_pwb;
   // -----
   // st5 output wires
   wire [3-1:0] st5_idx;
@@ -173,6 +180,8 @@ module sa_pipeline_6th_16cells
   wire [4-1:0] st5_lcvb_v;
   wire [28-1:0] st5_dvac;
   wire [28-1:0] st5_dvbc;
+  wire [12-1:0] st5_pwa;
+  wire [12-1:0] st5_pwb;
   // -----
   // st6 output wires
   wire [3-1:0] st6_idx;
@@ -181,6 +190,8 @@ module sa_pipeline_6th_16cells
   wire [14-1:0] st6_dvbc;
   wire [28-1:0] st6_dvas;
   wire [28-1:0] st6_dvbs;
+  wire [12-1:0] st6_pwa;
+  wire [12-1:0] st6_pwb;
   // -----
   // st7 output wires
   wire [3-1:0] st7_idx;
@@ -189,6 +200,8 @@ module sa_pipeline_6th_16cells
   wire [7-1:0] st7_dvbc;
   wire [14-1:0] st7_dvas;
   wire [14-1:0] st7_dvbs;
+  wire [12-1:0] st7_pwa;
+  wire [12-1:0] st7_pwb;
   // -----
   // st8 output wires
   wire [3-1:0] st8_idx;
@@ -196,25 +209,30 @@ module sa_pipeline_6th_16cells
   wire [7-1:0] st8_dc;
   wire [7-1:0] st8_dvas;
   wire [7-1:0] st8_dvbs;
+  wire [12-1:0] st8_pwa;
+  wire [12-1:0] st8_pwb;
   // st9 output wires
   wire [3-1:0] st9_idx;
   wire st9_v;
   wire [7-1:0] st9_dc;
   wire [7-1:0] st9_ds;
+  wire [12-1:0] st9_pwa;
+  wire [12-1:0] st9_pwb;
   // -----
   // st10 output wires
   wire [3-1:0] st10_idx;
   wire st10_v;
   wire st10_sw;
+  wire [12-1:0] st10_wa;
+  wire [12-1:0] st10_wb;
   // -----
-  assign pipe_start = &{ start, st1_rdy };
 
   th_controller_6th_16cells
   th_controller_6th_16cells
   (
     .clk(clk),
     .rst(rst),
-    .start(pipe_start),
+    .start(start),
     .done(done),
     .idx_out(th_idx),
     .v_out(th_v),
@@ -235,13 +253,14 @@ module sa_pipeline_6th_16cells
     .out_data(out_data),
     .clk(clk),
     .rst(rst),
-    .rdy(st1_rdy),
     .idx_in(th_idx),
     .v_in(th_v),
     .ca_in(th_ca),
     .cb_in(th_cb),
     .sw_in(st10_sw),
     .st1_wb_in(st1_wb),
+    .st10_wa_in(st10_wa),
+    .st10_wb_in(st10_wb),
     .idx_out(st1_idx),
     .v_out(st1_v),
     .ca_out(st1_ca),
@@ -252,7 +271,9 @@ module sa_pipeline_6th_16cells
     .nb_v_out(st1_nb_v),
     .sw_out(st1_sw),
     .wa_out(st1_wa),
-    .wb_out(st1_wb)
+    .wb_out(st1_wb),
+    .pwa_out(st1_pwa),
+    .pwb_out(st1_pwb)
   );
 
 
@@ -274,6 +295,8 @@ module sa_pipeline_6th_16cells
     .sw_in(st1_sw),
     .wa_in(st1_wa),
     .wb_in(st1_wb),
+    .pwa_in(st1_pwa),
+    .pwb_in(st1_pwb),
     .idx_out(st2_idx),
     .v_out(st2_v),
     .ca_out(st2_ca),
@@ -288,7 +311,9 @@ module sa_pipeline_6th_16cells
     .vb_v_out(st2_vb_v),
     .sw_out(st2_sw),
     .wa_out(st2_wa),
-    .wb_out(st2_wb)
+    .wb_out(st2_wb),
+    .pwa_out(st2_pwa),
+    .pwb_out(st2_pwb)
   );
 
 
@@ -316,6 +341,8 @@ module sa_pipeline_6th_16cells
     .sw_in(st2_sw),
     .wa_in(st2_wa),
     .wb_in(st2_wb),
+    .pwa_in(st2_pwa),
+    .pwb_in(st2_pwb),
     .idx_out(st3_idx),
     .v_out(st3_v),
     .ca_out(st3_ca),
@@ -324,7 +351,9 @@ module sa_pipeline_6th_16cells
     .cva_v_out(st3_cva_v),
     .cvb_out(st3_cvb),
     .cvb_v_out(st3_cvb_v),
-    .wb_out(st3_wb)
+    .wb_out(st3_wb),
+    .pwa_out(st3_pwa),
+    .pwb_out(st3_pwb)
   );
 
 
@@ -340,6 +369,8 @@ module sa_pipeline_6th_16cells
     .cva_v_in(st3_cva_v),
     .cvb_in(st3_cvb),
     .cvb_v_in(st3_cvb_v),
+    .pwa_in(st3_pwa),
+    .pwb_in(st3_pwb),
     .idx_out(st4_idx),
     .v_out(st4_v),
     .lca_out(st4_lca),
@@ -347,7 +378,9 @@ module sa_pipeline_6th_16cells
     .lcva_out(st4_lcva),
     .lcva_v_out(st4_lcva_v),
     .lcvb_out(st4_lcvb),
-    .lcvb_v_out(st4_lcvb_v)
+    .lcvb_v_out(st4_lcvb_v),
+    .pwa_out(st4_pwa),
+    .pwb_out(st4_pwb)
   );
 
 
@@ -363,6 +396,8 @@ module sa_pipeline_6th_16cells
     .lcva_v_in(st4_lcva_v),
     .lcvb_in(st4_lcvb),
     .lcvb_v_in(st4_lcvb_v),
+    .pwa_in(st4_pwa),
+    .pwb_in(st4_pwb),
     .idx_out(st5_idx),
     .v_out(st5_v),
     .lca_out(st5_lca),
@@ -372,7 +407,9 @@ module sa_pipeline_6th_16cells
     .lcvb_out(st5_lcvb),
     .lcvb_v_out(st5_lcvb_v),
     .dvac_out(st5_dvac),
-    .dvbc_out(st5_dvbc)
+    .dvbc_out(st5_dvbc),
+    .pwa_out(st5_pwa),
+    .pwb_out(st5_pwb)
   );
 
 
@@ -390,12 +427,16 @@ module sa_pipeline_6th_16cells
     .lcvb_v_in(st5_lcvb_v),
     .dvac_in(st5_dvac),
     .dvbc_in(st5_dvbc),
+    .pwa_in(st5_pwa),
+    .pwb_in(st5_pwb),
     .idx_out(st6_idx),
     .v_out(st6_v),
     .dvac_out(st6_dvac),
     .dvbc_out(st6_dvbc),
     .dvas_out(st6_dvas),
-    .dvbs_out(st6_dvbs)
+    .dvbs_out(st6_dvbs),
+    .pwa_out(st6_pwa),
+    .pwb_out(st6_pwb)
   );
 
 
@@ -409,12 +450,16 @@ module sa_pipeline_6th_16cells
     .dvbc_in(st6_dvbc),
     .dvas_in(st6_dvas),
     .dvbs_in(st6_dvbs),
+    .pwa_in(st6_pwa),
+    .pwb_in(st6_pwb),
     .idx_out(st7_idx),
     .v_out(st7_v),
     .dvac_out(st7_dvac),
     .dvbc_out(st7_dvbc),
     .dvas_out(st7_dvas),
-    .dvbs_out(st7_dvbs)
+    .dvbs_out(st7_dvbs),
+    .pwa_out(st7_pwa),
+    .pwb_out(st7_pwb)
   );
 
 
@@ -428,11 +473,15 @@ module sa_pipeline_6th_16cells
     .dvbc_in(st7_dvbc),
     .dvas_in(st7_dvas),
     .dvbs_in(st7_dvbs),
+    .pwa_in(st7_pwa),
+    .pwb_in(st7_pwb),
     .idx_out(st8_idx),
     .v_out(st8_v),
     .dc_out(st8_dc),
     .dvas_out(st8_dvas),
-    .dvbs_out(st8_dvbs)
+    .dvbs_out(st8_dvbs),
+    .pwa_out(st8_pwa),
+    .pwb_out(st8_pwb)
   );
 
 
@@ -445,10 +494,14 @@ module sa_pipeline_6th_16cells
     .dc_in(st8_dc),
     .dvas_in(st8_dvas),
     .dvbs_in(st8_dvbs),
+    .pwa_in(st8_pwa),
+    .pwb_in(st8_pwb),
     .idx_out(st9_idx),
     .v_out(st9_v),
     .dc_out(st9_dc),
-    .ds_out(st9_ds)
+    .ds_out(st9_ds),
+    .pwa_out(st9_pwa),
+    .pwb_out(st9_pwb)
   );
 
 
@@ -460,6 +513,8 @@ module sa_pipeline_6th_16cells
     .v_in(st9_v),
     .dc_in(st9_dc),
     .ds_in(st9_ds),
+    .pwa_in(st9_pwa),
+    .pwb_in(st9_pwb),
     .idx_out(st10_idx),
     .v_out(st10_v),
     .sw_out(st10_sw)
@@ -631,7 +686,8 @@ module st1_c2n_6th_16cells
   input [4-1:0] cb_in,
   input sw_in,
   input [12-1:0] st1_wb_in,
-  output reg rdy,
+  input [12-1:0] st10_wa_in,
+  input [12-1:0] st10_wb_in,
   output reg [3-1:0] idx_out,
   output reg v_out,
   output reg [4-1:0] ca_out,
@@ -642,24 +698,18 @@ module st1_c2n_6th_16cells
   output reg nb_v_out,
   output reg sw_out,
   output reg [12-1:0] wa_out,
-  output reg [12-1:0] wb_out
+  output reg [12-1:0] wb_out,
+  output reg [12-1:0] pwa_out,
+  output reg [12-1:0] pwb_out
 );
 
   reg flag;
-  reg [4-1:0] counter;
-  reg fifo_init;
   wire [4-1:0] na_t;
   wire na_v_t;
   wire [4-1:0] nb_t;
   wire nb_v_t;
-  wire [12-1:0] wa_t;
-  wire [12-1:0] wb_t;
-  wire fifoa_wr_en;
-  wire fifoa_rd_en;
-  wire [12-1:0] fifoa_data;
-  wire fifob_wr_en;
-  wire fifob_rd_en;
-  wire [12-1:0] fifob_data;
+  wire [12-1:0] pwa_t;
+  wire [12-1:0] pwb_t;
   wire [3-1:0] wa_idx;
   wire [4-1:0] wa_c;
   wire [4-1:0] wa_n;
@@ -671,20 +721,20 @@ module st1_c2n_6th_16cells
   wire m_wr;
   wire [7-1:0] m_wr_addr;
   wire [5-1:0] m_wr_data;
-  assign fifoa_data = { idx_in, ca_in, nb_v_t, nb_t };
-  assign fifob_data = { idx_in, cb_in, na_v_t, na_t };
-  assign fifoa_rd_en = &{ rdy, v_in };
-  assign fifob_rd_en = &{ rdy, v_in };
-  assign fifoa_wr_en = |{ &{ rdy, v_in }, fifo_init };
-  assign fifob_wr_en = |{ &{ rdy, v_in }, fifo_init };
-  assign wa_n = wa_t[3:0];
-  assign wa_n_v = wa_t[4];
-  assign wa_c = wa_t[8:5];
-  assign wa_idx = wa_t[11:9];
+
+  assign pwa_t = { idx_in, ca_in, nb_v_t, nb_t };
+  assign pwb_t = { idx_in, cb_in, na_v_t, na_t };
+
+  assign wa_n = st10_wa_in[3:0];
+  assign wa_n_v = st10_wa_in[4];
+  assign wa_c = st10_wa_in[8:5];
+  assign wa_idx = st10_wa_in[11:9];
+
   assign wb_n = st1_wb_in[3:0];
   assign wb_n_v = st1_wb_in[4];
   assign wb_c = st1_wb_in[8:5];
   assign wb_idx = st1_wb_in[11:9];
+
   assign m_wr = sw_in;
   assign m_wr_addr = (flag)? { wa_idx, wa_c } : { wb_idx, wb_c };
   assign m_wr_data = (flag)? { wa_n_v, wa_n } : { wb_n_v, wb_n };
@@ -699,8 +749,10 @@ module st1_c2n_6th_16cells
     nb_out <= nb_t;
     nb_v_out <= nb_v_t;
     sw_out <= sw_in;
-    wa_out <= wa_t;
-    wb_out <= wb_t;
+    wa_out <= st10_wa_in;
+    wb_out <= st10_wb_in;
+    pwa_out <= pwa_t;
+    pwb_out <= pwb_t;
     out_v <= rd;
     out_data <= { na_v_t, na_t };
   end
@@ -713,23 +765,6 @@ module st1_c2n_6th_16cells
       if(sw_in) begin
         flag <= ~flag;
       end 
-    end
-  end
-
-
-  always @(posedge clk) begin
-    if(rst) begin
-      rdy <= 0;
-      fifo_init <= 0;
-      counter <= 0;
-    end else begin
-      if(counter == 4) begin
-        rdy <= 1;
-        fifo_init <= 0;
-      end else begin
-        counter <= counter + 1;
-        fifo_init <= 1;
-      end
     end
   end
 
@@ -754,42 +789,9 @@ module st1_c2n_6th_16cells
   );
 
 
-  fifo
-  #(
-    .FIFO_WIDTH(12),
-    .FIFO_DEPTH_BITS(3)
-  )
-  fifo_a
-  (
-    .clk(clk),
-    .rst(rst),
-    .write_enable(fifoa_wr_en),
-    .input_data(fifoa_data),
-    .output_read_enable(fifoa_rd_en),
-    .output_data(wa_t)
-  );
-
-
-  fifo
-  #(
-    .FIFO_WIDTH(12),
-    .FIFO_DEPTH_BITS(3)
-  )
-  fifo_b
-  (
-    .clk(clk),
-    .rst(rst),
-    .write_enable(fifob_wr_en),
-    .input_data(fifob_data),
-    .output_read_enable(fifob_rd_en),
-    .output_data(wb_t)
-  );
-
-
   initial begin
     out_v = 0;
     out_data = 0;
-    rdy = 0;
     idx_out = 0;
     v_out = 0;
     ca_out = 0;
@@ -801,9 +803,9 @@ module st1_c2n_6th_16cells
     sw_out = 0;
     wa_out = 0;
     wb_out = 0;
+    pwa_out = 0;
+    pwb_out = 0;
     flag = 0;
-    counter = 0;
-    fifo_init = 0;
   end
 
 
@@ -863,107 +865,6 @@ endmodule
 
 
 
-module fifo #
-(
-  parameter FIFO_WIDTH = 32,
-  parameter FIFO_DEPTH_BITS = 8,
-  parameter FIFO_ALMOSTFULL_THRESHOLD = 2 ** FIFO_DEPTH_BITS - 4,
-  parameter FIFO_ALMOSTEMPTY_THRESHOLD = 4
-)
-(
-  input clk,
-  input rst,
-  input write_enable,
-  input [FIFO_WIDTH-1:0] input_data,
-  input output_read_enable,
-  output reg output_valid,
-  output reg [FIFO_WIDTH-1:0] output_data,
-  output reg empty,
-  output reg almostempty,
-  output reg full,
-  output reg almostfull,
-  output reg [FIFO_DEPTH_BITS+1-1:0] data_count
-);
-
-  reg [FIFO_DEPTH_BITS-1:0] read_pointer;
-  reg [FIFO_DEPTH_BITS-1:0] write_pointer;
-  (*rom_style = "block" *) reg [FIFO_WIDTH-1:0] mem[0:2**FIFO_DEPTH_BITS-1];
-  /*
-  reg [FIFO_WIDTH-1:0] mem [0:2**FIFO_DEPTH_BITS-1];
-  */
-
-  always @(posedge clk) begin
-    if(rst) begin
-      empty <= 1;
-      almostempty <= 1;
-      full <= 0;
-      almostfull <= 0;
-      read_pointer <= 0;
-      write_pointer <= 0;
-      data_count <= 0;
-    end else begin
-      case({ write_enable, output_read_enable })
-        3: begin
-          read_pointer <= read_pointer + 1;
-          write_pointer <= write_pointer + 1;
-        end
-        2: begin
-          if(~full) begin
-            write_pointer <= write_pointer + 1;
-            data_count <= data_count + 1;
-            empty <= 0;
-            if(data_count == FIFO_ALMOSTEMPTY_THRESHOLD - 1) begin
-              almostempty <= 0;
-            end 
-            if(data_count == 2 ** FIFO_DEPTH_BITS - 1) begin
-              full <= 1;
-            end 
-            if(data_count == FIFO_ALMOSTFULL_THRESHOLD - 1) begin
-              almostfull <= 1;
-            end 
-          end 
-        end
-        1: begin
-          if(~empty) begin
-            read_pointer <= read_pointer + 1;
-            data_count <= data_count - 1;
-            full <= 0;
-            if(data_count == FIFO_ALMOSTFULL_THRESHOLD) begin
-              almostfull <= 0;
-            end 
-            if(data_count == 1) begin
-              empty <= 1;
-            end 
-            if(data_count == FIFO_ALMOSTEMPTY_THRESHOLD) begin
-              almostempty <= 1;
-            end 
-          end 
-        end
-      endcase
-    end
-  end
-
-
-  always @(posedge clk) begin
-    if(rst) begin
-      output_valid <= 0;
-    end else begin
-      output_valid <= 0;
-      if(write_enable == 1) begin
-        mem[write_pointer] <= input_data;
-      end 
-      if(output_read_enable == 1) begin
-        output_data <= mem[read_pointer];
-        output_valid <= 1;
-      end 
-    end
-  end
-
-
-endmodule
-
-
-
 module st2_n_6th_16cells
 (
   input clk,
@@ -981,6 +882,8 @@ module st2_n_6th_16cells
   input sw_in,
   input [12-1:0] wa_in,
   input [12-1:0] wb_in,
+  input [12-1:0] pwa_in,
+  input [12-1:0] pwb_in,
   output reg [3-1:0] idx_out,
   output reg v_out,
   output reg [4-1:0] ca_out,
@@ -995,7 +898,9 @@ module st2_n_6th_16cells
   output reg [4-1:0] vb_v_out,
   output reg sw_out,
   output reg [12-1:0] wa_out,
-  output reg [12-1:0] wb_out
+  output reg [12-1:0] wb_out,
+  output reg [12-1:0] pwa_out,
+  output reg [12-1:0] pwb_out
 );
 
 
@@ -1024,6 +929,8 @@ module st2_n_6th_16cells
     va_v_out <= va_v_t;
     vb_out <= vb_t;
     vb_v_out <= vb_v_t;
+    pwa_out <= pwa_in;
+    pwb_out <= pwb_out;
   end
 
 
@@ -1119,6 +1026,8 @@ module st2_n_6th_16cells
     sw_out = 0;
     wa_out = 0;
     wb_out = 0;
+    pwa_out = 0;
+    pwb_out = 0;
   end
 
 
@@ -1201,6 +1110,8 @@ module st3_n2c_6th_16cells
   input sw_in,
   input [12-1:0] wa_in,
   input [12-1:0] wb_in,
+  input [12-1:0] pwa_in,
+  input [12-1:0] pwb_in,
   output reg [3-1:0] idx_out,
   output reg v_out,
   output reg [4-1:0] ca_out,
@@ -1209,7 +1120,10 @@ module st3_n2c_6th_16cells
   output reg [4-1:0] cva_v_out,
   output reg [16-1:0] cvb_out,
   output reg [4-1:0] cvb_v_out,
-  output reg [12-1:0] wb_out
+  output reg [12-1:0] wa_out,
+  output reg [12-1:0] wb_out,
+  output reg [12-1:0] pwa_out,
+  output reg [12-1:0] pwb_out
 );
 
   reg flag;
@@ -1247,7 +1161,10 @@ module st3_n2c_6th_16cells
     cva_v_out <= va_v_in;
     cvb_out <= cvb_t;
     cvb_v_out <= vb_v_in;
+    wa_out <= wa_in;
     wb_out <= wb_in;
+    pwa_out <= pwa_in;
+    pwb_out <= pwb_in;
   end
 
 
@@ -1351,7 +1268,10 @@ module st3_n2c_6th_16cells
     cva_v_out = 0;
     cvb_out = 0;
     cvb_v_out = 0;
+    wa_out = 0;
     wb_out = 0;
+    pwa_out = 0;
+    pwb_out = 0;
     flag = 0;
   end
 
@@ -1423,6 +1343,8 @@ module st4_lcf_6th_16cells
   input [4-1:0] cva_v_in,
   input [16-1:0] cvb_in,
   input [4-1:0] cvb_v_in,
+  input [12-1:0] pwa_in,
+  input [12-1:0] pwb_in,
   output reg [3-1:0] idx_out,
   output reg v_out,
   output reg [4-1:0] lca_out,
@@ -1430,7 +1352,9 @@ module st4_lcf_6th_16cells
   output reg [16-1:0] lcva_out,
   output reg [4-1:0] lcva_v_out,
   output reg [16-1:0] lcvb_out,
-  output reg [4-1:0] lcvb_v_out
+  output reg [4-1:0] lcvb_v_out,
+  output reg [12-1:0] pwa_out,
+  output reg [12-1:0] pwb_out
 );
 
   wire [4-1:0] lca_t;
@@ -1447,6 +1371,8 @@ module st4_lcf_6th_16cells
     lcva_v_out <= cva_v_in;
     lcvb_out <= lcvb_t;
     lcvb_v_out <= cvb_v_in;
+    pwa_out <= pwa_in;
+    pwb_out <= pwb_in;
   end
 
 
@@ -1509,6 +1435,8 @@ module st4_lcf_6th_16cells
     lcva_v_out = 0;
     lcvb_out = 0;
     lcvb_v_out = 0;
+    pwa_out = 0;
+    pwb_out = 0;
   end
 
 
@@ -1559,6 +1487,8 @@ module st5_d1_6th_16cells
   input [4-1:0] lcva_v_in,
   input [16-1:0] lcvb_in,
   input [4-1:0] lcvb_v_in,
+  input [12-1:0] pwa_in,
+  input [12-1:0] pwb_in,
   output reg [3-1:0] idx_out,
   output reg v_out,
   output reg [4-1:0] lca_out,
@@ -1568,7 +1498,9 @@ module st5_d1_6th_16cells
   output reg [16-1:0] lcvb_out,
   output reg [4-1:0] lcvb_v_out,
   output reg [28-1:0] dvac_out,
-  output reg [28-1:0] dvbc_out
+  output reg [28-1:0] dvbc_out,
+  output reg [12-1:0] pwa_out,
+  output reg [12-1:0] pwb_out
 );
 
   wire [4-1:0] lcac;
@@ -1589,6 +1521,8 @@ module st5_d1_6th_16cells
     lcvb_v_out <= lcvb_v_in;
     dvac_out <= dvac_t;
     dvbc_out <= dvbc_t;
+    pwa_out <= pwa_in;
+    pwb_out <= pwb_in;
   end
 
 
@@ -1659,6 +1593,8 @@ module st5_d1_6th_16cells
     lcvb_v_out = 0;
     dvac_out = 0;
     dvbc_out = 0;
+    pwa_out = 0;
+    pwb_out = 0;
   end
 
 
@@ -1722,12 +1658,16 @@ module st6_d2_s1_6th_16cells
   input [4-1:0] lcvb_v_in,
   input [28-1:0] dvac_in,
   input [28-1:0] dvbc_in,
+  input [12-1:0] pwa_in,
+  input [12-1:0] pwb_in,
   output reg [3-1:0] idx_out,
   output reg v_out,
   output reg [14-1:0] dvac_out,
   output reg [14-1:0] dvbc_out,
   output reg [28-1:0] dvas_out,
-  output reg [28-1:0] dvbs_out
+  output reg [28-1:0] dvbs_out,
+  output reg [12-1:0] pwa_out,
+  output reg [12-1:0] pwb_out
 );
 
   wire [4-1:0] lcas;
@@ -1760,6 +1700,8 @@ module st6_d2_s1_6th_16cells
     dvbc_out <= dvbc_t;
     dvas_out <= dvas_t;
     dvbs_out <= dvbs_t;
+    pwa_out <= pwa_in;
+    pwb_out <= pwb_in;
   end
 
 
@@ -1826,6 +1768,8 @@ module st6_d2_s1_6th_16cells
     dvbc_out = 0;
     dvas_out = 0;
     dvbs_out = 0;
+    pwa_out = 0;
+    pwb_out = 0;
   end
 
 
@@ -1842,12 +1786,16 @@ module st7_s2_6th_16cells
   input [14-1:0] dvbc_in,
   input [28-1:0] dvas_in,
   input [28-1:0] dvbs_in,
+  input [12-1:0] pwa_in,
+  input [12-1:0] pwb_in,
   output reg [3-1:0] idx_out,
   output reg v_out,
   output reg [7-1:0] dvac_out,
   output reg [7-1:0] dvbc_out,
   output reg [14-1:0] dvas_out,
-  output reg [14-1:0] dvbs_out
+  output reg [14-1:0] dvbs_out,
+  output reg [12-1:0] pwa_out,
+  output reg [12-1:0] pwb_out
 );
 
   wire [7-1:0] dvac_t;
@@ -1868,6 +1816,8 @@ module st7_s2_6th_16cells
     dvbc_out <= dvbc_t;
     dvas_out <= dvas_t;
     dvbs_out <= dvbs_t;
+    pwa_out <= pwa_in;
+    pwb_out <= pwb_in;
   end
 
 
@@ -1878,6 +1828,8 @@ module st7_s2_6th_16cells
     dvbc_out = 0;
     dvas_out = 0;
     dvbs_out = 0;
+    pwa_out = 0;
+    pwb_out = 0;
   end
 
 
@@ -1894,11 +1846,15 @@ module st8_s3_6th_16cells
   input [7-1:0] dvbc_in,
   input [14-1:0] dvas_in,
   input [14-1:0] dvbs_in,
+  input [12-1:0] pwa_in,
+  input [12-1:0] pwb_in,
   output reg [3-1:0] idx_out,
   output reg v_out,
   output reg [7-1:0] dc_out,
   output reg [7-1:0] dvas_out,
-  output reg [7-1:0] dvbs_out
+  output reg [7-1:0] dvbs_out,
+  output reg [12-1:0] pwa_out,
+  output reg [12-1:0] pwb_out
 );
 
   wire [7-1:0] dc_t;
@@ -1914,6 +1870,8 @@ module st8_s3_6th_16cells
     dc_out <= dc_t;
     dvas_out <= dvas_t;
     dvbs_out <= dvbs_t;
+    pwa_out <= pwa_in;
+    pwb_out <= pwb_in;
   end
 
 
@@ -1923,6 +1881,8 @@ module st8_s3_6th_16cells
     dc_out = 0;
     dvas_out = 0;
     dvbs_out = 0;
+    pwa_out = 0;
+    pwb_out = 0;
   end
 
 
@@ -1938,10 +1898,14 @@ module st9_s4_6th_16cells
   input [7-1:0] dc_in,
   input [7-1:0] dvas_in,
   input [7-1:0] dvbs_in,
+  input [12-1:0] pwa_in,
+  input [12-1:0] pwb_in,
   output reg [3-1:0] idx_out,
   output reg v_out,
   output reg [7-1:0] dc_out,
-  output reg [7-1:0] ds_out
+  output reg [7-1:0] ds_out,
+  output reg [12-1:0] pwa_out,
+  output reg [12-1:0] pwb_out
 );
 
   wire [7-1:0] ds_t;
@@ -1952,6 +1916,8 @@ module st9_s4_6th_16cells
     v_out <= v_in;
     dc_out <= dc_in;
     ds_out <= ds_t;
+    pwa_out <= pwa_in;
+    pwb_out <= pwb_in;
   end
 
 
@@ -1960,6 +1926,8 @@ module st9_s4_6th_16cells
     v_out = 0;
     dc_out = 0;
     ds_out = 0;
+    pwa_out = 0;
+    pwb_out = 0;
   end
 
 
@@ -1974,9 +1942,13 @@ module st10_cmp_6th_16cells
   input v_in,
   input [7-1:0] dc_in,
   input [7-1:0] ds_in,
+  input [12-1:0] pwa_in,
+  input [12-1:0] pwb_in,
   output reg [3-1:0] idx_out,
   output reg v_out,
-  output reg sw_out
+  output reg sw_out,
+  output reg [12-1:0] wa_out,
+  output reg [12-1:0] wb_out
 );
 
   wire sw_t;
@@ -1986,6 +1958,8 @@ module st10_cmp_6th_16cells
     idx_out <= idx_in;
     v_out <= v_in;
     sw_out <= sw_t;
+    wa_out <= pwa_in;
+    wb_out <= pwb_in;
   end
 
 
@@ -1993,6 +1967,8 @@ module st10_cmp_6th_16cells
     idx_out = 0;
     v_out = 0;
     sw_out = 0;
+    wa_out = 0;
+    wb_out = 0;
   end
 
 
